@@ -35,65 +35,8 @@
                            Foreground="{DynamicResource TextDimBrush}"/>
             </StackPanel>
 
-            <!-- ===================== EMPTY-STATE CARD (shown before any run) ===================== -->
-            <Border Grid.Column="1" Classes="hero" IsVisible="{Binding IsEmptyState}"
-                    Background="{DynamicResource SurfaceBrush}"
-                    BorderBrush="{DynamicResource BorderSoftBrush}" BorderThickness="1"
-                    Padding="22,18" MinWidth="420">
-                <StackPanel Spacing="10">
-                    <Grid ColumnDefinitions="*,Auto">
-                        <TextBlock Grid.Column="0" Text="READY · 12 BENCHMARKS QUEUED"
-                                   Classes="section-label" Foreground="{DynamicResource AccentBrush}"/>
-                        <TextBlock Grid.Column="1" Text="~30 s"
-                                   FontFamily="{DynamicResource MonoFontMedium}" FontSize="9"
-                                   LetterSpacing="2"
-                                   Foreground="{DynamicResource TextDimBrush}"/>
-                    </Grid>
-
-                    <Grid ColumnDefinitions="74,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto" RowSpacing="3">
-                        <TextBlock Grid.Row="0" Grid.Column="0" Text="CPU.INT"
-                                   FontFamily="{DynamicResource MonoFontMedium}" FontSize="9"
-                                   LetterSpacing="2" Foreground="{DynamicResource TextFaintBrush}"/>
-                        <TextBlock Grid.Row="0" Grid.Column="1" Text="aes · sha256 · zstd"
-                                   FontFamily="{DynamicResource MonoFont}" FontSize="11"
-                                   Foreground="{DynamicResource TextDimBrush}"/>
-
-                        <TextBlock Grid.Row="1" Grid.Column="0" Text="CPU.FP"
-                                   FontFamily="{DynamicResource MonoFontMedium}" FontSize="9"
-                                   LetterSpacing="2" Foreground="{DynamicResource TextFaintBrush}"/>
-                        <TextBlock Grid.Row="1" Grid.Column="1" Text="sgemm · fft · mandelbrot"
-                                   FontFamily="{DynamicResource MonoFont}" FontSize="11"
-                                   Foreground="{DynamicResource TextDimBrush}"/>
-
-                        <TextBlock Grid.Row="2" Grid.Column="0" Text="MEMORY"
-                                   FontFamily="{DynamicResource MonoFontMedium}" FontSize="9"
-                                   LetterSpacing="2" Foreground="{DynamicResource TextFaintBrush}"/>
-                        <TextBlock Grid.Row="2" Grid.Column="1" Text="stream triad · pointer-chase latency"
-                                   FontFamily="{DynamicResource MonoFont}" FontSize="11"
-                                   Foreground="{DynamicResource TextDimBrush}"/>
-
-                        <TextBlock Grid.Row="3" Grid.Column="0" Text="SCALING"
-                                   FontFamily="{DynamicResource MonoFontMedium}" FontSize="9"
-                                   LetterSpacing="2" Foreground="{DynamicResource TextFaintBrush}"/>
-                        <TextBlock Grid.Row="3" Grid.Column="1" Text="multi-core efficiency at 1, 2, 4, … cores"
-                                   FontFamily="{DynamicResource MonoFont}" FontSize="11"
-                                   Foreground="{DynamicResource TextDimBrush}"/>
-
-                        <TextBlock Grid.Row="4" Grid.Column="0" Text="GPU"
-                                   FontFamily="{DynamicResource MonoFontMedium}" FontSize="9"
-                                   LetterSpacing="2" Foreground="{DynamicResource TextFaintBrush}"/>
-                        <TextBlock Grid.Row="4" Grid.Column="1" Text="matmul fp32 · matmul fp16 · ai inference"
-                                   FontFamily="{DynamicResource MonoFont}" FontSize="11"
-                                   Foreground="{DynamicResource TextDimBrush}"/>
-                    </Grid>
-
-                    <TextBlock Text="BASELINE 1000 = MID-RANGE 2024 LAPTOP · HIGHER IS BETTER"
-                               FontFamily="{DynamicResource MonoFontMedium}" FontSize="9"
-                               LetterSpacing="2"
-                               Foreground="{DynamicResource TextFaintBrush}"
-                               Margin="0,4,0,0"/>
-                </StackPanel>
-            </Border>
+            <!-- (Empty-state explainer lives in the SINGLE-tab stage panel now —
+                 keeping the header right side blank avoids duplicating it here.) -->
 
             <!-- ===================== SCORE READOUT ===================== -->
             <Border Grid.Column="1" Classes="hero" IsVisible="{Binding HasScores}"
