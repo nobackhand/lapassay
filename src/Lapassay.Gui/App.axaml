@@ -1,0 +1,266 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="Lapassay.Gui.App"
+             RequestedThemeVariant="Dark">
+
+    <Application.Styles>
+        <FluentTheme/>
+    </Application.Styles>
+
+    <Application.Resources>
+        <ResourceDictionary>
+            <!-- ==================== INSTRUMENT — design tokens ==================== -->
+            <!-- A diagnostic-instrument aesthetic. Warm-tinted near-black, single sharp
+                 amber accent, JetBrains Mono throughout. No purple. No gradients. -->
+
+            <!-- Colors -->
+            <Color x:Key="ColorBg">#0C0A09</Color>
+            <Color x:Key="ColorSurface">#16110D</Color>
+            <Color x:Key="ColorSurface2">#1F1813</Color>
+            <Color x:Key="ColorSurface3">#2A2018</Color>
+            <Color x:Key="ColorBorder">#2A2118</Color>
+            <Color x:Key="ColorBorderBright">#3F2E1E</Color>
+            <Color x:Key="ColorText">#F4EDE4</Color>
+            <Color x:Key="ColorTextDim">#998B78</Color>
+            <Color x:Key="ColorTextFaint">#5A4F43</Color>
+            <Color x:Key="ColorAccent">#F97316</Color>
+            <Color x:Key="ColorAccentDim">#9A4E11</Color>
+            <Color x:Key="ColorOk">#A3E635</Color>
+            <Color x:Key="ColorBad">#F87171</Color>
+
+            <!-- Brushes -->
+            <SolidColorBrush x:Key="BgBrush"          Color="{StaticResource ColorBg}"/>
+            <SolidColorBrush x:Key="SurfaceBrush"     Color="{StaticResource ColorSurface}"/>
+            <SolidColorBrush x:Key="Surface2Brush"    Color="{StaticResource ColorSurface2}"/>
+            <SolidColorBrush x:Key="Surface3Brush"    Color="{StaticResource ColorSurface3}"/>
+            <SolidColorBrush x:Key="BorderSoftBrush"  Color="{StaticResource ColorBorder}"/>
+            <SolidColorBrush x:Key="BorderBrightBrush" Color="{StaticResource ColorBorderBright}"/>
+            <SolidColorBrush x:Key="TextBrush"        Color="{StaticResource ColorText}"/>
+            <SolidColorBrush x:Key="TextDimBrush"     Color="{StaticResource ColorTextDim}"/>
+            <SolidColorBrush x:Key="TextFaintBrush"   Color="{StaticResource ColorTextFaint}"/>
+            <SolidColorBrush x:Key="AccentBrush"      Color="{StaticResource ColorAccent}"/>
+            <SolidColorBrush x:Key="AccentDimBrush"   Color="{StaticResource ColorAccentDim}"/>
+            <SolidColorBrush x:Key="OkBrush"          Color="{StaticResource ColorOk}"/>
+            <SolidColorBrush x:Key="BadBrush"         Color="{StaticResource ColorBad}"/>
+
+            <!-- Fonts -->
+            <FontFamily x:Key="MonoFont">avares://lapassay-gui/Assets/Fonts/JetBrainsMono-Regular.ttf#JetBrains Mono</FontFamily>
+            <FontFamily x:Key="MonoFontLight">avares://lapassay-gui/Assets/Fonts/JetBrainsMono-Light.ttf#JetBrains Mono</FontFamily>
+            <FontFamily x:Key="MonoFontMedium">avares://lapassay-gui/Assets/Fonts/JetBrainsMono-Medium.ttf#JetBrains Mono</FontFamily>
+            <FontFamily x:Key="MonoFontSemi">avares://lapassay-gui/Assets/Fonts/JetBrainsMono-SemiBold.ttf#JetBrains Mono</FontFamily>
+            <FontFamily x:Key="MonoFontBold">avares://lapassay-gui/Assets/Fonts/JetBrainsMono-Bold.ttf#JetBrains Mono</FontFamily>
+        </ResourceDictionary>
+    </Application.Resources>
+
+    <Application.Styles>
+        <!-- ==================== Window ==================== -->
+        <Style Selector="Window">
+            <Setter Property="Background" Value="{DynamicResource BgBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
+            <Setter Property="FontFamily" Value="{DynamicResource MonoFont}"/>
+            <Setter Property="FontSize" Value="13"/>
+        </Style>
+
+        <Style Selector="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
+            <Setter Property="FontFamily" Value="{DynamicResource MonoFont}"/>
+        </Style>
+
+        <!-- Section heading: ALL CAPS, tracked, dim -->
+        <Style Selector="TextBlock.section-label">
+            <Setter Property="FontFamily" Value="{DynamicResource MonoFontMedium}"/>
+            <Setter Property="FontSize" Value="10"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextDimBrush}"/>
+            <Setter Property="LetterSpacing" Value="2"/>
+        </Style>
+
+        <Style Selector="TextBlock.dim">
+            <Setter Property="Foreground" Value="{DynamicResource TextDimBrush}"/>
+        </Style>
+        <Style Selector="TextBlock.faint">
+            <Setter Property="Foreground" Value="{DynamicResource TextFaintBrush}"/>
+        </Style>
+
+        <!-- ==================== TabControl ==================== -->
+        <Style Selector="TabControl">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Padding" Value="0"/>
+        </Style>
+        <Style Selector="TabControl WrapPanel">
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
+
+        <Style Selector="TabItem">
+            <Setter Property="FontFamily" Value="{DynamicResource MonoFontMedium}"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextDimBrush}"/>
+            <Setter Property="LetterSpacing" Value="2"/>
+            <Setter Property="Padding" Value="0,10,0,10"/>
+            <Setter Property="Margin" Value="0,0,28,0"/>
+            <Setter Property="MinHeight" Value="0"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0,0,0,1"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+        </Style>
+        <Style Selector="TabItem:pointerover /template/ Border#PART_LayoutRoot">
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
+        <Style Selector="TabItem:pointerover">
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
+        </Style>
+        <Style Selector="TabItem:selected">
+            <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+        </Style>
+        <Style Selector="TabItem:selected /template/ Border#PART_LayoutRoot">
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
+
+        <!-- ==================== Buttons ==================== -->
+        <Style Selector="Button">
+            <Setter Property="FontFamily" Value="{DynamicResource MonoFontMedium}"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="LetterSpacing" Value="1.4"/>
+            <Setter Property="Padding" Value="14,8"/>
+            <Setter Property="MinHeight" Value="0"/>
+            <Setter Property="CornerRadius" Value="2"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrightBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+        </Style>
+        <Style Selector="Button:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource Surface2Brush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentDimBrush}"/>
+            <Setter Property="TextElement.Foreground" Value="{DynamicResource AccentBrush}"/>
+        </Style>
+        <Style Selector="Button:pressed /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource Surface3Brush}"/>
+        </Style>
+        <Style Selector="Button:disabled">
+            <Setter Property="Opacity" Value="0.35"/>
+        </Style>
+
+        <Style Selector="Button.primary">
+            <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
+            <Setter Property="Foreground" Value="#1A0F08"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+            <Setter Property="FontFamily" Value="{DynamicResource MonoFontSemi}"/>
+        </Style>
+        <Style Selector="Button.primary /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
+            <Setter Property="TextElement.Foreground" Value="#1A0F08"/>
+        </Style>
+        <Style Selector="Button.primary:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#FFAA52"/>
+            <Setter Property="BorderBrush" Value="#FFAA52"/>
+            <Setter Property="TextElement.Foreground" Value="#1A0F08"/>
+        </Style>
+
+        <Style Selector="Button.danger">
+            <Setter Property="Background" Value="{DynamicResource BadBrush}"/>
+            <Setter Property="Foreground" Value="#1A0F08"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BadBrush}"/>
+            <Setter Property="FontFamily" Value="{DynamicResource MonoFontSemi}"/>
+        </Style>
+        <Style Selector="Button.danger /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BadBrush}"/>
+            <Setter Property="TextElement.Foreground" Value="#1A0F08"/>
+        </Style>
+        <Style Selector="Button.danger:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#FF8B8B"/>
+            <Setter Property="BorderBrush" Value="#FF8B8B"/>
+        </Style>
+
+        <Style Selector="Button.ghost">
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderSoftBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextDimBrush}"/>
+        </Style>
+
+        <!-- ==================== TextBox ==================== -->
+        <Style Selector="TextBox">
+            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderSoftBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="2"/>
+            <Setter Property="FontFamily" Value="{DynamicResource MonoFont}"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Padding" Value="8,6"/>
+            <Setter Property="MinHeight" Value="0"/>
+        </Style>
+        <Style Selector="TextBox:focus">
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+        </Style>
+        <Style Selector="TextBox:focus /template/ Border#PART_BorderElement">
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+        </Style>
+
+        <!-- ==================== NumericUpDown ==================== -->
+        <Style Selector="NumericUpDown">
+            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderSoftBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="2"/>
+            <Setter Property="FontFamily" Value="{DynamicResource MonoFont}"/>
+            <Setter Property="MinHeight" Value="0"/>
+        </Style>
+        <Style Selector="NumericUpDown:focus-within">
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+        </Style>
+
+        <!-- ==================== CheckBox ==================== -->
+        <Style Selector="CheckBox">
+            <Setter Property="FontFamily" Value="{DynamicResource MonoFontMedium}"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="LetterSpacing" Value="1.4"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
+        </Style>
+
+        <!-- ==================== ScrollViewer ==================== -->
+        <Style Selector="ScrollViewer">
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
+
+        <!-- ==================== ListBox ==================== -->
+        <Style Selector="ListBox">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
+        </Style>
+        <Style Selector="ListBoxItem">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Padding" Value="12,4"/>
+            <Setter Property="MinHeight" Value="0"/>
+            <Setter Property="CornerRadius" Value="0"/>
+            <Setter Property="BorderThickness" Value="0,0,0,1"/>
+            <Setter Property="BorderBrush" Value="#1A1612"/>
+        </Style>
+        <Style Selector="ListBoxItem:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource Surface2Brush}"/>
+        </Style>
+        <Style Selector="ListBoxItem:selected /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource Surface3Brush}"/>
+            <Setter Property="TextElement.Foreground" Value="{DynamicResource AccentBrush}"/>
+        </Style>
+
+        <!-- ==================== Card surface (for borders that wrap a section) ==================== -->
+        <Style Selector="Border.card">
+            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderSoftBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="3"/>
+        </Style>
+
+        <!-- ==================== Status pill (kbd-like) ==================== -->
+        <Style Selector="Border.pill">
+            <Setter Property="Background" Value="{DynamicResource Surface2Brush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderSoftBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="2"/>
+            <Setter Property="Padding" Value="8,3"/>
+        </Style>
+    </Application.Styles>
+</Application>

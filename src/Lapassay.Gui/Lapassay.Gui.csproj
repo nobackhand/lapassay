@@ -1,0 +1,35 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <AssemblyName>lapassay-gui</AssemblyName>
+    <Platforms>x64</Platforms>
+    <PlatformTarget>x64</PlatformTarget>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="12.0.1" />
+    <PackageReference Include="Avalonia.Desktop" Version="12.0.1" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="12.0.1" />
+    <PackageReference Include="AvaloniaUI.DiagnosticsSupport" Version="2.2.1">
+      <IncludeAssets Condition="'$(Configuration)' != 'Debug'">None</IncludeAssets>
+      <PrivateAssets Condition="'$(Configuration)' != 'Debug'">All</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <AvaloniaResource Include="..\..\assets\fonts\JetBrainsMono-Light.ttf"    Link="Assets/Fonts/JetBrainsMono-Light.ttf" />
+    <AvaloniaResource Include="..\..\assets\fonts\JetBrainsMono-Regular.ttf"  Link="Assets/Fonts/JetBrainsMono-Regular.ttf" />
+    <AvaloniaResource Include="..\..\assets\fonts\JetBrainsMono-Medium.ttf"   Link="Assets/Fonts/JetBrainsMono-Medium.ttf" />
+    <AvaloniaResource Include="..\..\assets\fonts\JetBrainsMono-SemiBold.ttf" Link="Assets/Fonts/JetBrainsMono-SemiBold.ttf" />
+    <AvaloniaResource Include="..\..\assets\fonts\JetBrainsMono-Bold.ttf"     Link="Assets/Fonts/JetBrainsMono-Bold.ttf" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Lapassay.Core\Lapassay.Core.csproj" />
+  </ItemGroup>
+</Project>

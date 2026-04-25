@@ -1,0 +1,18 @@
+# build output
+bin/
+obj/
+*.user
+.vs/
+.vscode/
+
+# scratch / experiments
+scratch/
+
+# benchmark results — never commit these.
+# They include hostname, CPU model, BIOS string, etc.
+results/*
+!results/.gitkeep
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
