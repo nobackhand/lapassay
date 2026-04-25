@@ -62,6 +62,9 @@ public record BenchmarkResult(
 
 public record CategoryScore(string Name, int Score, int BenchmarkCount);
 
+/// <summary>Emitted by the Runner before each kernel starts so a UI can show "X of Y".</summary>
+public record KernelProgress(string Id, int Index, int Total);
+
 /// <summary>Aggregate scores: 1000 = mid-range 2024 laptop baseline.</summary>
 public record Scores(int Cpu, int Gpu, int Overall, List<CategoryScore> Categories);
 

@@ -28,6 +28,24 @@
                            Foreground="{DynamicResource TextDimBrush}"/>
             </StackPanel>
 
+            <!-- ===================== EMPTY-STATE CARD (shown before any run) ===================== -->
+            <Border Grid.Column="1" IsVisible="{Binding IsEmptyState}"
+                    Background="{DynamicResource SurfaceBrush}"
+                    BorderBrush="{DynamicResource BorderSoftBrush}" BorderThickness="1"
+                    Padding="24,18" MinWidth="380">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="READY" Classes="section-label" Foreground="{DynamicResource AccentBrush}"/>
+                    <TextBlock Text="Click RUN to test 12 benchmarks across CPU + GPU."
+                               FontFamily="{DynamicResource MonoFont}" FontSize="13"
+                               Foreground="{DynamicResource TextBrush}"
+                               TextWrapping="Wrap"/>
+                    <TextBlock Text="Takes ~30 seconds. A score of 1000 = mid-range 2024 laptop. Higher is better."
+                               FontFamily="{DynamicResource MonoFont}" FontSize="11"
+                               Foreground="{DynamicResource TextDimBrush}"
+                               TextWrapping="Wrap"/>
+                </StackPanel>
+            </Border>
+
             <!-- ===================== SCORE READOUT ===================== -->
             <Border Grid.Column="1" IsVisible="{Binding HasScores}"
                     Background="{DynamicResource SurfaceBrush}"
@@ -39,10 +57,13 @@
                                    FontFamily="{DynamicResource MonoFontMedium}" FontSize="9"
                                    LetterSpacing="3"
                                    Foreground="{DynamicResource TextDimBrush}"/>
-                        <TextBlock Grid.Column="1" Text="◉ READOUT"
-                                   FontFamily="{DynamicResource MonoFontMedium}" FontSize="9"
-                                   LetterSpacing="2"
-                                   Foreground="{DynamicResource AccentBrush}"/>
+                        <Border Grid.Column="1" Classes="pill"
+                                BorderBrush="{DynamicResource AccentDimBrush}">
+                            <TextBlock Text="{Binding BaselineRatioText}"
+                                       FontFamily="{DynamicResource MonoFontSemi}" FontSize="9"
+                                       LetterSpacing="2"
+                                       Foreground="{DynamicResource AccentBrush}"/>
+                        </Border>
                     </Grid>
                     <TextBlock Text="{Binding OverallScore}"
                                FontFamily="{DynamicResource MonoFontLight}" FontSize="64"
@@ -129,7 +150,7 @@
             <!-- SINGLE RUN                                                    -->
             <!-- ============================================================ -->
             <TabItem Header="SINGLE">
-                <Grid RowDefinitions="Auto,Auto,*,Auto,Auto" Margin="0,18,0,0">
+                <Grid RowDefinitions="Auto,Auto,Auto,*,Auto,Auto" Margin="0,18,0,0">
 
                     <!-- Controls row -->
                     <Border Grid.Row="0" Classes="card" Padding="16,12">
@@ -153,18 +174,54 @@
                             <Border Width="1" Background="{DynamicResource BorderSoftBrush}" Height="22" Margin="6,0"/>
                             <Button Classes="primary" Content="{Binding RunButtonLabel}"
                                     Click="OnRunClicked" IsEnabled="{Binding !IsRunning}"/>
-                            <Button Content="REPORT" Click="OnViewReportClicked" IsEnabled="{Binding HasReport}"/>
-                            <Button Content="SHARE-SAFE" Click="OnViewShareableReportClicked" IsEnabled="{Binding HasReport}"/>
-                            <Button Content="COMPARE" Click="OnCompareClicked"/>
-                            <Button Content="FOLDER" Click="OnOpenFolderClicked" Classes="ghost"/>
+                            <Button Content="VIEW REPORT" Click="OnViewReportClicked" IsEnabled="{Binding HasReport}"
+                                    ToolTip.Tip="Open the auto-generated HTML report in your browser"/>
+                            <Button Content="EXPORT (REDACTED)" Click="OnViewShareableReportClicked" IsEnabled="{Binding HasReport}"
+                                    ToolTip.Tip="Export an anonymized HTML — hostname + CPU model redacted"/>
+                            <Button Content="COMPARE RUNS…" Click="OnCompareClicked"
+                                    ToolTip.Tip="Pick two saved runs to diff side-by-side"/>
+                            <Button Content="OPEN FOLDER" Click="OnOpenFolderClicked" Classes="ghost"
+                                    ToolTip.Tip="Open the results folder in Explorer"/>
                         </StackPanel>
                     </Border>
 
+                    <!-- Progress banner: visible only while a run is in flight -->
+                    <Border Grid.Row="1" IsVisible="{Binding IsRunning}"
+                            Background="{DynamicResource SurfaceBrush}"
+                            BorderBrush="{DynamicResource AccentBrush}" BorderThickness="0,0,0,2"
+                            Padding="14,10" Margin="0,12,0,0">
+                        <Grid ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto,Auto" RowSpacing="8">
+                            <TextBlock Grid.Row="0" Grid.Column="0"
+                                       Text="RUNNING" Classes="section-label"
+                                       Foreground="{DynamicResource AccentBrush}"
+                                       VerticalAlignment="Center"/>
+                            <TextBlock Grid.Row="0" Grid.Column="1"
+                                       Text="{Binding ProgressKernelDescription}"
+                                       FontFamily="{DynamicResource MonoFont}" FontSize="13"
+                                       Foreground="{DynamicResource TextBrush}"
+                                       Margin="14,0,0,0"
+                                       VerticalAlignment="Center"
+                                       TextTrimming="CharacterEllipsis"/>
+                            <TextBlock Grid.Row="0" Grid.Column="2"
+                                       Text="{Binding ProgressLabel}"
+                                       FontFamily="{DynamicResource MonoFontSemi}" FontSize="13"
+                                       Foreground="{DynamicResource AccentBrush}"
+                                       VerticalAlignment="Center"/>
+                            <ProgressBar Grid.Row="1" Grid.ColumnSpan="3"
+                                         Minimum="0" Maximum="{Binding ProgressTotal}"
+                                         Value="{Binding ProgressIndex}"
+                                         Foreground="{DynamicResource AccentBrush}"
+                                         Background="{DynamicResource Surface3Brush}"
+                                         Height="2" CornerRadius="0"/>
+                        </Grid>
+                    </Border>
+
                     <!-- Live telemetry -->
-                    <Border Grid.Row="1" Classes="card" Padding="0" Margin="0,12,0,0" Height="160" ClipToBounds="True">
+                    <Border Grid.Row="2" Classes="card" Padding="0" Margin="0,12,0,0" Height="160" ClipToBounds="True">
                         <Grid RowDefinitions="Auto,*">
                             <Grid Grid.Row="0" ColumnDefinitions="Auto,*" Margin="14,10,14,4">
-                                <TextBlock Grid.Column="0" Text="LIVE TELEMETRY" Classes="section-label"/>
+                                <TextBlock Grid.Column="0" Text="LIVE TELEMETRY  ·  WATTS (LEFT)  ·  °C (RIGHT)"
+                                           Classes="section-label"/>
                                 <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="14">
                                     <StackPanel Orientation="Horizontal" Spacing="4">
                                         <Border Background="{DynamicResource AccentBrush}" Width="8" Height="2" VerticalAlignment="Center"/>
@@ -189,7 +246,7 @@
                     </Border>
 
                     <!-- Log -->
-                    <Border Grid.Row="2" Classes="card" Padding="0" Margin="0,12,0,0" ClipToBounds="True">
+                    <Border Grid.Row="3" Classes="card" Padding="0" Margin="0,12,0,0" ClipToBounds="True">
                         <Grid RowDefinitions="Auto,*">
                             <TextBlock Grid.Row="0" Text="LOG" Classes="section-label" Margin="14,10,14,4"/>
                             <ScrollViewer Grid.Row="1" Name="LogScroll"
@@ -204,36 +261,43 @@
                     </Border>
 
                     <!-- Results heading -->
-                    <Grid Grid.Row="3" Margin="0,16,0,8" ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto">
-                        <TextBlock Grid.Column="0" Text="BENCHMARK"  Classes="section-label"/>
-                        <TextBlock Grid.Column="1" Text="VALUE"      Classes="section-label" MinWidth="90"  TextAlignment="Right"/>
-                        <TextBlock Grid.Column="2" Text="UNIT"       Classes="section-label" MinWidth="80"  TextAlignment="Right" Margin="14,0,0,0"/>
-                        <TextBlock Grid.Column="3" Text="SCORE"      Classes="section-label" MinWidth="60"  TextAlignment="Right" Margin="14,0,0,0" Foreground="{DynamicResource AccentBrush}"/>
-                        <TextBlock Grid.Column="4" Text="STDEV"      Classes="section-label" MinWidth="70"  TextAlignment="Right" Margin="14,0,0,0"/>
+                    <Grid Grid.Row="4" Margin="0,16,0,8" ColumnDefinitions="180,*,Auto,Auto,Auto,Auto">
+                        <TextBlock Grid.Column="0" Text="BENCHMARK"   Classes="section-label"/>
+                        <TextBlock Grid.Column="1" Text="WHAT IT MEASURES" Classes="section-label" Margin="14,0,0,0"/>
+                        <TextBlock Grid.Column="2" Text="VALUE"       Classes="section-label" MinWidth="90" TextAlignment="Right" Margin="14,0,0,0"/>
+                        <TextBlock Grid.Column="3" Text="UNIT"        Classes="section-label" MinWidth="80" TextAlignment="Right" Margin="14,0,0,0"/>
+                        <TextBlock Grid.Column="4" Text="SCORE"       Classes="section-label" MinWidth="60" TextAlignment="Right" Margin="14,0,0,0" Foreground="{DynamicResource AccentBrush}"/>
+                        <TextBlock Grid.Column="5" Text="STDEV"       Classes="section-label" MinWidth="70" TextAlignment="Right" Margin="14,0,0,0"/>
                     </Grid>
 
-                    <Border Grid.Row="4" Classes="card" Padding="0">
-                        <ScrollViewer MaxHeight="240">
+                    <Border Grid.Row="5" Classes="card" Padding="0">
+                        <ScrollViewer MaxHeight="280">
                             <ItemsControl ItemsSource="{Binding Results}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto" Margin="14,7" >
+                                        <Grid ColumnDefinitions="180,*,Auto,Auto,Auto,Auto" Margin="14,7">
                                             <TextBlock Grid.Column="0" Text="{Binding Id}"
+                                                       FontFamily="{DynamicResource MonoFont}" FontSize="11"
+                                                       Foreground="{DynamicResource TextDimBrush}"
+                                                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock Grid.Column="1" Text="{Binding Description}"
                                                        FontFamily="{DynamicResource MonoFont}" FontSize="12"
-                                                       Foreground="{DynamicResource TextBrush}"/>
-                                            <TextBlock Grid.Column="1" Text="{Binding ValueText}"
+                                                       Foreground="{DynamicResource TextBrush}"
+                                                       Margin="14,0,0,0" VerticalAlignment="Center"
+                                                       TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock Grid.Column="2" Text="{Binding ValueText}"
                                                        FontFamily="{DynamicResource MonoFont}" FontSize="12"
-                                                       MinWidth="90" TextAlignment="Right"
+                                                       MinWidth="90" TextAlignment="Right" Margin="14,0,0,0"
                                                        Foreground="{DynamicResource TextBrush}"/>
-                                            <TextBlock Grid.Column="2" Text="{Binding Metric}"
+                                            <TextBlock Grid.Column="3" Text="{Binding Metric}"
                                                        FontFamily="{DynamicResource MonoFont}" FontSize="11"
                                                        MinWidth="80" TextAlignment="Right" Margin="14,0,0,0"
                                                        Foreground="{DynamicResource TextFaintBrush}"/>
-                                            <TextBlock Grid.Column="3" Text="{Binding ScoreText}"
-                                                       FontFamily="{DynamicResource MonoFontSemi}" FontSize="12"
+                                            <TextBlock Grid.Column="4" Text="{Binding ScoreText}"
+                                                       FontFamily="{DynamicResource MonoFontSemi}" FontSize="13"
                                                        MinWidth="60" TextAlignment="Right" Margin="14,0,0,0"
                                                        Foreground="{DynamicResource AccentBrush}"/>
-                                            <TextBlock Grid.Column="4" Text="{Binding StdevPctText}"
+                                            <TextBlock Grid.Column="5" Text="{Binding StdevPctText}"
                                                        FontFamily="{DynamicResource MonoFont}" FontSize="11"
                                                        MinWidth="70" TextAlignment="Right" Margin="14,0,0,0"
                                                        Foreground="{DynamicResource TextDimBrush}"/>
@@ -287,7 +351,7 @@
                                 <TextBlock Grid.Column="3" Text="OVERALL"  Classes="section-label" TextAlignment="Right" Foreground="{DynamicResource AccentBrush}"/>
                                 <TextBlock Grid.Column="4" Text="CPU"      Classes="section-label" TextAlignment="Right"/>
                                 <TextBlock Grid.Column="5" Text="GPU"      Classes="section-label" TextAlignment="Right"/>
-                                <TextBlock Grid.Column="6" Text="Δ PREV"   Classes="section-label" TextAlignment="Right"/>
+                                <TextBlock Grid.Column="6" Text="VS PREVIOUS" Classes="section-label" TextAlignment="Right"/>
                             </Grid>
                             <ListBox Grid.Row="1" Name="HistoryList"
                                      ItemsSource="{Binding Rows}" SelectionMode="Multiple">
@@ -321,10 +385,11 @@
                                                        FontFamily="{DynamicResource MonoFontMedium}" FontSize="12"
                                                        Foreground="{DynamicResource TextDimBrush}"
                                                        TextAlignment="Right"/>
-                                            <Button Grid.Column="7" Content="OPEN"
+                                            <Button Grid.Column="7" Content="REPORT"
                                                     Click="OnHistoryOpenReportClicked"
                                                     Tag="{Binding Entry.Path}" Margin="10,0,0,0"
-                                                    Padding="8,3" FontSize="9"/>
+                                                    Padding="8,3" FontSize="9"
+                                                    ToolTip.Tip="Open this run's HTML report in your browser"/>
                                         </Grid>
                                     </DataTemplate>
                                 </ListBox.ItemTemplate>
@@ -382,7 +447,7 @@
                     <Grid Grid.Row="2" ColumnDefinitions="*,*" Margin="0,12,0,0">
                         <Border Grid.Column="0" Classes="card" Padding="16,14" Margin="0,0,6,0">
                             <StackPanel Spacing="6">
-                                <TextBlock Text="RUN 1" Classes="section-label"/>
+                                <TextBlock Text="RUN 1 (BASELINE)" Classes="section-label"/>
                                 <TextBlock Text="{Binding FirstScoreText}"
                                            FontFamily="{DynamicResource MonoFontMedium}" FontSize="13"
                                            Foreground="{DynamicResource TextBrush}"/>
@@ -390,7 +455,21 @@
                         </Border>
                         <Border Grid.Column="1" Classes="card" Padding="16,14" Margin="6,0,0,0">
                             <StackPanel Spacing="6">
-                                <TextBlock Text="RUN 2" Classes="section-label"/>
+                                <Grid ColumnDefinitions="Auto,*">
+                                    <TextBlock Grid.Column="0" Text="RUN 2" Classes="section-label"/>
+                                    <Border Grid.Column="1" Classes="pill"
+                                            HorizontalAlignment="Right"
+                                            BorderBrush="{DynamicResource AccentBrush}"
+                                            IsVisible="{Binding SecondRunPowerExpectedText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                                        <StackPanel Orientation="Horizontal" Spacing="6">
+                                            <TextBlock Text="EXPECTING" FontFamily="{DynamicResource MonoFontMedium}" FontSize="9"
+                                                       LetterSpacing="2" Foreground="{DynamicResource TextDimBrush}"/>
+                                            <TextBlock Text="{Binding SecondRunPowerExpectedText}"
+                                                       FontFamily="{DynamicResource MonoFontSemi}" FontSize="10"
+                                                       Foreground="{DynamicResource AccentBrush}"/>
+                                        </StackPanel>
+                                    </Border>
+                                </Grid>
                                 <TextBlock Text="{Binding SecondScoreText}"
                                            FontFamily="{DynamicResource MonoFontMedium}" FontSize="13"
                                            Foreground="{DynamicResource TextBrush}"/>

@@ -7,6 +7,7 @@ using System.Runtime.Versioning;
 using Lapassay.Core;
 using Lapassay.Core.Models;
 using Lapassay.Core.Telemetry;
+using static Lapassay.Core.BenchmarkCatalog;
 
 namespace Lapassay.Gui;
 
@@ -27,6 +28,10 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     int _cpuScore;
     int _gpuScore;
     bool _hasScores;
+    string _progressKernelId = "";
+    string _progressKernelDescription = "";
+    int _progressIndex;
+    int _progressTotal;
 
     public MainWindowViewModel()
     {
@@ -42,9 +47,16 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public bool IsRunning
     {
         get => _isRunning;
-        set { if (Set(ref _isRunning, value)) OnPropertyChanged(nameof(RunButtonLabel)); }
+        set
+        {
+            if (Set(ref _isRunning, value))
+            {
+                OnPropertyChanged(nameof(RunButtonLabel));
+                OnPropertyChanged(nameof(IsEmptyState));
+            }
+        }
     }
-    public string RunButtonLabel => IsRunning ? "Running…" : "Run";
+    public string RunButtonLabel => IsRunning ? "RUNNING…" : "RUN";
     public string LogContent { get => _logContent; set => Set(ref _logContent, value); }
     public string LastOutputPath { get => _lastOutputPath; set => Set(ref _lastOutputPath, value); }
     public string LastHtmlPath { get => _lastHtmlPath; set => Set(ref _lastHtmlPath, value); }
@@ -61,9 +73,43 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public int OverallScore { get => _overallScore; set => Set(ref _overallScore, value); }
     public int CpuScore { get => _cpuScore; set => Set(ref _cpuScore, value); }
     public int GpuScore { get => _gpuScore; set => Set(ref _gpuScore, value); }
-    public bool HasScores { get => _hasScores; set => Set(ref _hasScores, value); }
+    public bool HasScores
+    {
+        get => _hasScores;
+        set { if (Set(ref _hasScores, value)) { OnPropertyChanged(nameof(IsEmptyState)); OnPropertyChanged(nameof(BaselineRatioText)); } }
+    }
     public bool HasCpuScore => _cpuScore > 0;
     public bool HasGpuScore => _gpuScore > 0;
+
+    /// <summary>True when no run has completed yet AND no run is currently underway —
+    /// drives the "READY" explainer card on the header so empty space isn't confusing.</summary>
+    public bool IsEmptyState => !_hasScores && !_isRunning;
+
+    /// <summary>Plain-language interpretation of the overall score relative to baseline 1000.</summary>
+    public string BaselineRatioText
+    {
+        get
+        {
+            if (_overallScore <= 0) return "";
+            var ratio = _overallScore / 1000.0;
+            return $"{ratio:F2}× BASELINE";
+        }
+    }
+
+    public string ProgressKernelId { get => _progressKernelId; set => Set(ref _progressKernelId, value); }
+    public string ProgressKernelDescription { get => _progressKernelDescription; set => Set(ref _progressKernelDescription, value); }
+    public int ProgressIndex
+    {
+        get => _progressIndex;
+        set { if (Set(ref _progressIndex, value)) { OnPropertyChanged(nameof(ProgressFraction)); OnPropertyChanged(nameof(ProgressLabel)); } }
+    }
+    public int ProgressTotal
+    {
+        get => _progressTotal;
+        set { if (Set(ref _progressTotal, value)) { OnPropertyChanged(nameof(ProgressFraction)); OnPropertyChanged(nameof(ProgressLabel)); } }
+    }
+    public double ProgressFraction => _progressTotal == 0 ? 0 : (double)_progressIndex / _progressTotal;
+    public string ProgressLabel => _progressTotal == 0 ? "" : $"{_progressIndex} / {_progressTotal}";
 
     public ObservableCollection<CategoryRow> CategoryRows { get; } = new();
 
@@ -75,10 +121,27 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         HasScores = scores.Overall > 0;
         OnPropertyChanged(nameof(HasCpuScore));
         OnPropertyChanged(nameof(HasGpuScore));
+        OnPropertyChanged(nameof(BaselineRatioText));
 
         CategoryRows.Clear();
         foreach (var c in scores.Categories)
             CategoryRows.Add(new CategoryRow(PrettyCategory(c.Name), c.Score.ToString()));
+    }
+
+    public void SetProgress(KernelProgress p)
+    {
+        ProgressKernelId = p.Id;
+        ProgressKernelDescription = Describe(p.Id);
+        ProgressIndex = p.Index;
+        ProgressTotal = p.Total;
+    }
+
+    public void ClearProgress()
+    {
+        ProgressKernelId = "";
+        ProgressKernelDescription = "";
+        ProgressIndex = 0;
+        ProgressTotal = 0;
     }
 
     static string PrettyCategory(string raw) => raw switch
@@ -111,7 +174,13 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         foreach (var r in results)
         {
             var stdevPct = r.Stats.Median != 0 ? r.Stats.Stdev / r.Stats.Median * 100 : 0;
-            Results.Add(new ResultRow(r.Id, r.Metric, $"{r.Value:F1}", r.Score.ToString(), $"{stdevPct:F2}%"));
+            Results.Add(new ResultRow(
+                Id: r.Id,
+                Description: Describe(r.Id),
+                Metric: r.Metric,
+                ValueText: $"{r.Value:F1}",
+                ScoreText: r.Score.ToString(),
+                StdevPctText: $"{stdevPct:F2}%"));
         }
     }
 
@@ -127,5 +196,5 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     }
 }
 
-public sealed record ResultRow(string Id, string Metric, string ValueText, string ScoreText, string StdevPctText);
+public sealed record ResultRow(string Id, string Description, string Metric, string ValueText, string ScoreText, string StdevPctText);
 public sealed record CategoryRow(string Label, string ScoreText);

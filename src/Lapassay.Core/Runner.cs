@@ -13,7 +13,8 @@ namespace Lapassay.Core;
 public static class Runner
 {
     public record RunOptions(bool Cpu, bool Gpu, int CpuN = 1024, int GpuN = 2048,
-        Action<TelemetrySample>? OnTelemetrySample = null);
+        Action<TelemetrySample>? OnTelemetrySample = null,
+        Action<KernelProgress>? OnKernelStart = null);
 
     // Warmup/measurement counts per kernel category. Tuned empirically; CPU
     // benches need more warmup on laptops with aggressive turbo/DVFS.
@@ -41,6 +42,15 @@ public static class Runner
             globalMonitor.Start();
         }
 
+        // Total kernels we'll fire (matches the per-branch counts below).
+        var totalKernels = (options.Cpu ? 9 : 0) + (options.Gpu ? 3 : 0);
+        var kernelIndex = 0;
+        void Begin(string id)
+        {
+            kernelIndex++;
+            options.OnKernelStart?.Invoke(new KernelProgress(id, kernelIndex, totalKernels));
+        }
+
         if (options.Cpu)
         {
             // Pin the orchestrating thread to CPU 0. Multi-threaded kernels use
@@ -48,14 +58,15 @@ public static class Runner
             // benefit from a stable home core.
             ThreadPinning.PinCurrentThread(0);
 
-            results.Add(RunCpuSgemm(options.CpuN, log));
-            results.Add(RunAes(log));
-            results.Add(RunSha256(log));
-            results.Add(RunZstd(log));
-            results.Add(RunFft(log));
-            results.Add(RunMandelbrot(log));
-            results.Add(RunStreamTriad(log));
-            results.Add(RunPointerChase(log));
+            Begin($"cpu.sgemm.fp32.{options.CpuN}"); results.Add(RunCpuSgemm(options.CpuN, log));
+            Begin("cpu.aes128cbc");                  results.Add(RunAes(log));
+            Begin("cpu.sha256");                     results.Add(RunSha256(log));
+            Begin("cpu.zstd.level3");                results.Add(RunZstd(log));
+            Begin("cpu.fft.c2c.4096");               results.Add(RunFft(log));
+            Begin("cpu.mandelbrot.2048");            results.Add(RunMandelbrot(log));
+            Begin("cpu.stream.triad");               results.Add(RunStreamTriad(log));
+            Begin("cpu.latency.pointerchase");       results.Add(RunPointerChase(log));
+            Begin("cpu.scaling.efficiency");
             var (scalingResult, curve) = RunCpuScaling(env.Cpu.PhysicalCores, log);
             results.Add(scalingResult);
             scalingCurve = curve;
@@ -63,9 +74,9 @@ public static class Runner
 
         if (options.Gpu)
         {
-            results.Add(RunGpuFp32Matmul(options.GpuN, log));
-            results.Add(RunGpuFp16Matmul(options.GpuN, log));
-            results.Add(RunOnnxSqueezenet(log));
+            Begin($"gpu.matmul.fp32.{options.GpuN}"); results.Add(RunGpuFp32Matmul(options.GpuN, log));
+            Begin($"gpu.matmul.fp16.{options.GpuN}"); results.Add(RunGpuFp16Matmul(options.GpuN, log));
+            Begin("gpu.ai.squeezenet");               results.Add(RunOnnxSqueezenet(log));
         }
 
         // Stop the global telemetry stream now that all kernels are done.

@@ -66,13 +66,15 @@ public partial class MainWindow : Window
         Vm.LogContent = "";
         Vm.Results.Clear();
         Vm.LiveSamples.Clear();
+        Vm.ClearProgress();
 
         var options = new Runner.RunOptions(
             Cpu: Vm.RunCpu,
             Gpu: Vm.RunGpu,
             CpuN: Vm.CpuN,
             GpuN: Vm.GpuN,
-            OnTelemetrySample: sample => Dispatcher.UIThread.Post(() => Vm.LiveSamples.Add(sample)));
+            OnTelemetrySample: sample => Dispatcher.UIThread.Post(() => Vm.LiveSamples.Add(sample)),
+            OnKernelStart: p => Dispatcher.UIThread.Post(() => Vm.SetProgress(p)));
         var outPath = JsonReport.DefaultPath();
 
         try
@@ -98,6 +100,7 @@ public partial class MainWindow : Window
         finally
         {
             Vm.IsRunning = false;
+            Vm.ClearProgress();
             ScrollLogToBottom();
         }
     }
@@ -339,7 +342,7 @@ public partial class MainWindow : Window
 
         var firstRun = await RunOnceWithLiveTelemetry($"battery-ac-{PowerStateDetector.Describe(startPower).ToLower()}");
         if (firstRun is null) { b.State = BatteryAcState.Error; return; }
-        b.FirstScoreText = ScoresLine(firstRun.Value.run);
+        b.FirstScoreText = $"{PowerStateDetector.Describe(b.FirstRunPower).ToUpperInvariant()}  ·  {ScoresLine(firstRun.Value.run)}";
         b.FirstJsonPath = firstRun.Value.savedJson;
 
         b.State = BatteryAcState.AwaitingSwitch;
@@ -365,7 +368,7 @@ public partial class MainWindow : Window
 
         var secondRun = await RunOnceWithLiveTelemetry($"battery-ac-{PowerStateDetector.Describe(b.SecondRunPowerExpected).ToLower()}");
         if (secondRun is null) { b.State = BatteryAcState.Error; return; }
-        b.SecondScoreText = ScoresLine(secondRun.Value.run);
+        b.SecondScoreText = $"{PowerStateDetector.Describe(b.SecondRunPowerExpected).ToUpperInvariant()}  ·  {ScoresLine(secondRun.Value.run)}";
         b.SecondJsonPath = secondRun.Value.savedJson;
 
         // Generate diff: first vs second.
