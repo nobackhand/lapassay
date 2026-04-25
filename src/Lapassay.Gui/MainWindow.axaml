@@ -6,7 +6,7 @@
         mc:Ignorable="d"
         x:Class="Lapassay.Gui.MainWindow"
         x:DataType="vm:MainWindowViewModel"
-        Width="980" Height="760" MinWidth="780" MinHeight="540"
+        Width="1040" Height="880" MinWidth="820" MinHeight="640"
         Title="LAPASSAY">
 
     <Grid>
@@ -204,7 +204,7 @@
             <!-- SINGLE RUN                                                    -->
             <!-- ============================================================ -->
             <TabItem Header="SINGLE">
-                <Grid RowDefinitions="Auto,Auto,Auto,*,Auto,Auto" Margin="0,18,0,0">
+                <Grid RowDefinitions="Auto,Auto,*" Margin="0,18,0,0">
 
                     <!-- Controls row -->
                     <Border Grid.Row="0" Classes="card" Padding="16,12">
@@ -243,22 +243,22 @@
                     <Border Grid.Row="1" Classes="hero" IsVisible="{Binding IsRunning}"
                             Background="{DynamicResource SurfaceBrush}"
                             BorderBrush="{DynamicResource AccentBrush}" BorderThickness="0,0,0,2"
-                            Padding="14,10" Margin="0,12,0,0">
-                        <Grid ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto,Auto" RowSpacing="8">
+                            Padding="18,14" Margin="0,14,0,0">
+                        <Grid ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto,Auto" RowSpacing="10">
                             <TextBlock Grid.Row="0" Grid.Column="0"
                                        Text="RUNNING" Classes="section-label"
                                        Foreground="{DynamicResource AccentBrush}"
                                        VerticalAlignment="Center"/>
                             <TextBlock Grid.Row="0" Grid.Column="1"
                                        Text="{Binding ProgressKernelDescription}"
-                                       FontFamily="{DynamicResource MonoFont}" FontSize="13"
+                                       FontFamily="{DynamicResource MonoFont}" FontSize="14"
                                        Foreground="{DynamicResource TextBrush}"
-                                       Margin="14,0,0,0"
+                                       Margin="18,0,0,0"
                                        VerticalAlignment="Center"
                                        TextTrimming="CharacterEllipsis"/>
                             <TextBlock Grid.Row="0" Grid.Column="2"
                                        Text="{Binding ProgressLabel}"
-                                       FontFamily="{DynamicResource MonoFontSemi}" FontSize="13"
+                                       FontFamily="{DynamicResource MonoFontSemi}" FontSize="14"
                                        Foreground="{DynamicResource AccentBrush}"
                                        VerticalAlignment="Center"/>
                             <ProgressBar Grid.Row="1" Grid.ColumnSpan="3"
@@ -270,99 +270,162 @@
                         </Grid>
                     </Border>
 
-                    <!-- Live telemetry -->
-                    <Border Grid.Row="2" Classes="card" Padding="0" Margin="0,12,0,0" Height="160" ClipToBounds="True">
-                        <Grid RowDefinitions="Auto,*">
-                            <Grid Grid.Row="0" ColumnDefinitions="Auto,*" Margin="14,10,14,4">
-                                <TextBlock Grid.Column="0" Text="LIVE TELEMETRY  ·  WATTS (LEFT)  ·  °C (RIGHT)"
-                                           Classes="section-label"/>
-                                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="14">
-                                    <StackPanel Orientation="Horizontal" Spacing="4">
-                                        <Border Background="{DynamicResource AccentBrush}" Width="8" Height="2" VerticalAlignment="Center"/>
-                                        <TextBlock Text="CPU.W" FontFamily="{DynamicResource MonoFontMedium}" FontSize="9" LetterSpacing="2" Foreground="{DynamicResource TextDimBrush}"/>
-                                    </StackPanel>
-                                    <StackPanel Orientation="Horizontal" Spacing="4">
-                                        <Border Background="{DynamicResource OkBrush}" Width="8" Height="2" VerticalAlignment="Center"/>
-                                        <TextBlock Text="GPU.W" FontFamily="{DynamicResource MonoFontMedium}" FontSize="9" LetterSpacing="2" Foreground="{DynamicResource TextDimBrush}"/>
-                                    </StackPanel>
-                                    <StackPanel Orientation="Horizontal" Spacing="4">
-                                        <Border Background="{DynamicResource BadBrush}" Width="8" Height="1.5" VerticalAlignment="Center"/>
-                                        <TextBlock Text="CPU.°C" FontFamily="{DynamicResource MonoFontMedium}" FontSize="9" LetterSpacing="2" Foreground="{DynamicResource TextDimBrush}"/>
-                                    </StackPanel>
-                                    <StackPanel Orientation="Horizontal" Spacing="4">
-                                        <Border Background="#D69D45" Width="8" Height="1.5" VerticalAlignment="Center"/>
-                                        <TextBlock Text="GPU.°C" FontFamily="{DynamicResource MonoFontMedium}" FontSize="9" LetterSpacing="2" Foreground="{DynamicResource TextDimBrush}"/>
-                                    </StackPanel>
+                    <!-- ===================== STAGE PANEL =====================
+                         Three exclusive children. Exactly one is visible based on app state.
+                         The * row gives all available height to whichever is showing. -->
+                    <Grid Grid.Row="2" Margin="0,14,0,0">
+
+                        <!-- IDLE: large centred guide. Tells you what's about to happen and
+                             nothing else. No scrolling, no orphan column headings. -->
+                        <Border Classes="card hero" Padding="0"
+                                IsVisible="{Binding IsEmptyState}">
+                            <Grid>
+                                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
+                                            Spacing="22" MaxWidth="640" Margin="40">
+                                    <TextBlock Text="READY"
+                                               FontFamily="{DynamicResource MonoFontMedium}" FontSize="11"
+                                               LetterSpacing="6"
+                                               Foreground="{DynamicResource AccentBrush}"
+                                               HorizontalAlignment="Center"/>
+                                    <TextBlock Text="12 BENCHMARKS"
+                                               FontFamily="{DynamicResource MonoFontLight}" FontSize="48"
+                                               LineHeight="52"
+                                               Foreground="{DynamicResource TextBrush}"
+                                               HorizontalAlignment="Center"/>
+                                    <TextBlock Text="≈ 30 SECONDS · CPU + GPU"
+                                               FontFamily="{DynamicResource MonoFontMedium}" FontSize="10"
+                                               LetterSpacing="3"
+                                               Foreground="{DynamicResource TextDimBrush}"
+                                               HorizontalAlignment="Center"/>
+
+                                    <Border Height="1" Background="{DynamicResource BorderSoftBrush}" Margin="80,8"/>
+
+                                    <Grid ColumnDefinitions="100,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto" RowSpacing="6">
+                                        <TextBlock Grid.Row="0" Grid.Column="0" Text="CPU.INT" Classes="section-label"/>
+                                        <TextBlock Grid.Row="0" Grid.Column="1" Text="aes  ·  sha256  ·  zstd"
+                                                   FontFamily="{DynamicResource MonoFont}" FontSize="12"
+                                                   Foreground="{DynamicResource TextDimBrush}"/>
+                                        <TextBlock Grid.Row="1" Grid.Column="0" Text="CPU.FP" Classes="section-label"/>
+                                        <TextBlock Grid.Row="1" Grid.Column="1" Text="sgemm  ·  fft  ·  mandelbrot"
+                                                   FontFamily="{DynamicResource MonoFont}" FontSize="12"
+                                                   Foreground="{DynamicResource TextDimBrush}"/>
+                                        <TextBlock Grid.Row="2" Grid.Column="0" Text="MEMORY" Classes="section-label"/>
+                                        <TextBlock Grid.Row="2" Grid.Column="1" Text="stream triad  ·  pointer-chase latency"
+                                                   FontFamily="{DynamicResource MonoFont}" FontSize="12"
+                                                   Foreground="{DynamicResource TextDimBrush}"/>
+                                        <TextBlock Grid.Row="3" Grid.Column="0" Text="SCALING" Classes="section-label"/>
+                                        <TextBlock Grid.Row="3" Grid.Column="1" Text="multi-core efficiency at 1, 2, 4, … cores"
+                                                   FontFamily="{DynamicResource MonoFont}" FontSize="12"
+                                                   Foreground="{DynamicResource TextDimBrush}"/>
+                                        <TextBlock Grid.Row="4" Grid.Column="0" Text="GPU" Classes="section-label"/>
+                                        <TextBlock Grid.Row="4" Grid.Column="1" Text="matmul fp32  ·  matmul fp16  ·  ai inference"
+                                                   FontFamily="{DynamicResource MonoFont}" FontSize="12"
+                                                   Foreground="{DynamicResource TextDimBrush}"/>
+                                    </Grid>
+
+                                    <TextBlock Text="Click  RUN  to begin.  Score 1000 = mid-range 2024 laptop."
+                                               FontFamily="{DynamicResource MonoFont}" FontSize="11"
+                                               Foreground="{DynamicResource TextFaintBrush}"
+                                               HorizontalAlignment="Center"
+                                               Margin="0,8,0,0"/>
                                 </StackPanel>
                             </Grid>
-                            <vm:TelemetryChart Grid.Row="1" Samples="{Binding LiveSamples}"/>
-                        </Grid>
-                    </Border>
+                        </Border>
 
-                    <!-- Log -->
-                    <Border Grid.Row="3" Classes="card" Padding="0" Margin="0,12,0,0" ClipToBounds="True">
-                        <Grid RowDefinitions="Auto,*">
-                            <TextBlock Grid.Row="0" Text="LOG" Classes="section-label" Margin="14,10,14,4"/>
-                            <ScrollViewer Grid.Row="1" Name="LogScroll"
-                                          HorizontalScrollBarVisibility="Disabled"
-                                          VerticalScrollBarVisibility="Auto">
-                                <TextBlock Name="LogText" Text="{Binding LogContent}"
-                                           FontFamily="{DynamicResource MonoFont}" FontSize="11"
-                                           Foreground="{DynamicResource TextDimBrush}"
-                                           Padding="14,0,14,12" TextWrapping="Wrap"/>
-                            </ScrollViewer>
-                        </Grid>
-                    </Border>
+                        <!-- RUNNING: the live telemetry chart fills the entire stage. The
+                             progress banner above (Row 1) carries the title; here it's all chart. -->
+                        <Border Classes="card hero" Padding="0"
+                                IsVisible="{Binding IsRunning}" ClipToBounds="True">
+                            <Grid RowDefinitions="Auto,*">
+                                <Grid Grid.Row="0" ColumnDefinitions="Auto,*" Margin="18,14,18,6">
+                                    <TextBlock Grid.Column="0" Text="LIVE TELEMETRY  ·  WATTS (LEFT)  ·  °C (RIGHT)"
+                                               Classes="section-label"/>
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="14">
+                                        <StackPanel Orientation="Horizontal" Spacing="4">
+                                            <Border Background="{DynamicResource AccentBrush}" Width="8" Height="2" VerticalAlignment="Center"/>
+                                            <TextBlock Text="CPU.W" FontFamily="{DynamicResource MonoFontMedium}" FontSize="9" LetterSpacing="2" Foreground="{DynamicResource TextDimBrush}"/>
+                                        </StackPanel>
+                                        <StackPanel Orientation="Horizontal" Spacing="4">
+                                            <Border Background="{DynamicResource OkBrush}" Width="8" Height="2" VerticalAlignment="Center"/>
+                                            <TextBlock Text="GPU.W" FontFamily="{DynamicResource MonoFontMedium}" FontSize="9" LetterSpacing="2" Foreground="{DynamicResource TextDimBrush}"/>
+                                        </StackPanel>
+                                        <StackPanel Orientation="Horizontal" Spacing="4">
+                                            <Border Background="{DynamicResource BadBrush}" Width="8" Height="1.5" VerticalAlignment="Center"/>
+                                            <TextBlock Text="CPU.°C" FontFamily="{DynamicResource MonoFontMedium}" FontSize="9" LetterSpacing="2" Foreground="{DynamicResource TextDimBrush}"/>
+                                        </StackPanel>
+                                        <StackPanel Orientation="Horizontal" Spacing="4">
+                                            <Border Background="#D69D45" Width="8" Height="1.5" VerticalAlignment="Center"/>
+                                            <TextBlock Text="GPU.°C" FontFamily="{DynamicResource MonoFontMedium}" FontSize="9" LetterSpacing="2" Foreground="{DynamicResource TextDimBrush}"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Grid>
+                                <vm:TelemetryChart Grid.Row="1" Samples="{Binding LiveSamples}"/>
+                            </Grid>
+                        </Border>
 
-                    <!-- Results heading + table: hidden until a run has produced results -->
-                    <Grid Grid.Row="4" Margin="0,16,0,8" ColumnDefinitions="180,*,Auto,Auto,Auto,Auto"
-                          IsVisible="{Binding HasScores}">
-                        <TextBlock Grid.Column="0" Text="BENCHMARK"   Classes="section-label"/>
-                        <TextBlock Grid.Column="1" Text="WHAT IT MEASURES" Classes="section-label" Margin="14,0,0,0"/>
-                        <TextBlock Grid.Column="2" Text="VALUE"       Classes="section-label" MinWidth="90" TextAlignment="Right" Margin="14,0,0,0"/>
-                        <TextBlock Grid.Column="3" Text="UNIT"        Classes="section-label" MinWidth="80" TextAlignment="Right" Margin="14,0,0,0"/>
-                        <TextBlock Grid.Column="4" Text="SCORE"       Classes="section-label" MinWidth="60" TextAlignment="Right" Margin="14,0,0,0" Foreground="{DynamicResource AccentBrush}"/>
-                        <TextBlock Grid.Column="5" Text="STDEV"       Classes="section-label" MinWidth="70" TextAlignment="Right" Margin="14,0,0,0"/>
+                        <!-- RESULTS: thin trace strip on top, big results table below.
+                             Only visible after a finished run. -->
+                        <Grid IsVisible="{Binding HasScores}" RowDefinitions="Auto,Auto,*">
+
+                            <!-- Mini telemetry trace from the last run — quick glanceable. -->
+                            <Border Grid.Row="0" Classes="card" Padding="0" Height="80" ClipToBounds="True">
+                                <Grid RowDefinitions="Auto,*">
+                                    <TextBlock Grid.Row="0" Text="LAST RUN TRACE  ·  WATTS · °C"
+                                               Classes="section-label" Margin="14,8,14,2"/>
+                                    <vm:TelemetryChart Grid.Row="1" Samples="{Binding LiveSamples}"/>
+                                </Grid>
+                            </Border>
+
+                            <!-- Results column headings -->
+                            <Grid Grid.Row="1" Margin="14,18,14,8" ColumnDefinitions="180,*,Auto,Auto,Auto,Auto">
+                                <TextBlock Grid.Column="0" Text="BENCHMARK"        Classes="section-label"/>
+                                <TextBlock Grid.Column="1" Text="WHAT IT MEASURES" Classes="section-label" Margin="14,0,0,0"/>
+                                <TextBlock Grid.Column="2" Text="VALUE"            Classes="section-label" MinWidth="90" TextAlignment="Right" Margin="14,0,0,0"/>
+                                <TextBlock Grid.Column="3" Text="UNIT"             Classes="section-label" MinWidth="80" TextAlignment="Right" Margin="14,0,0,0"/>
+                                <TextBlock Grid.Column="4" Text="SCORE"            Classes="section-label" MinWidth="60" TextAlignment="Right" Margin="14,0,0,0" Foreground="{DynamicResource AccentBrush}"/>
+                                <TextBlock Grid.Column="5" Text="STDEV"            Classes="section-label" MinWidth="70" TextAlignment="Right" Margin="14,0,0,0"/>
+                            </Grid>
+
+                            <!-- Results table — gets the * row, so every benchmark fits without scrolling. -->
+                            <Border Grid.Row="2" Classes="card hero" Padding="0">
+                                <ScrollViewer>
+                                    <ItemsControl ItemsSource="{Binding Results}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Grid ColumnDefinitions="180,*,Auto,Auto,Auto,Auto" Margin="14,11">
+                                                    <TextBlock Grid.Column="0" Text="{Binding Id}"
+                                                               FontFamily="{DynamicResource MonoFont}" FontSize="11"
+                                                               Foreground="{DynamicResource TextDimBrush}"
+                                                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                                    <TextBlock Grid.Column="1" Text="{Binding Description}"
+                                                               FontFamily="{DynamicResource MonoFont}" FontSize="13"
+                                                               Foreground="{DynamicResource TextBrush}"
+                                                               Margin="14,0,0,0" VerticalAlignment="Center"
+                                                               TextTrimming="CharacterEllipsis"/>
+                                                    <TextBlock Grid.Column="2" Text="{Binding ValueText}"
+                                                               FontFamily="{DynamicResource MonoFont}" FontSize="13"
+                                                               MinWidth="90" TextAlignment="Right" Margin="14,0,0,0"
+                                                               Foreground="{DynamicResource TextBrush}"/>
+                                                    <TextBlock Grid.Column="3" Text="{Binding Metric}"
+                                                               FontFamily="{DynamicResource MonoFont}" FontSize="11"
+                                                               MinWidth="80" TextAlignment="Right" Margin="14,0,0,0"
+                                                               Foreground="{DynamicResource TextFaintBrush}"/>
+                                                    <TextBlock Grid.Column="4" Text="{Binding ScoreText}"
+                                                               FontFamily="{DynamicResource MonoFontSemi}" FontSize="14"
+                                                               MinWidth="60" TextAlignment="Right" Margin="14,0,0,0"
+                                                               Foreground="{DynamicResource AccentBrush}"/>
+                                                    <TextBlock Grid.Column="5" Text="{Binding StdevPctText}"
+                                                               FontFamily="{DynamicResource MonoFont}" FontSize="11"
+                                                               MinWidth="70" TextAlignment="Right" Margin="14,0,0,0"
+                                                               Foreground="{DynamicResource TextDimBrush}"/>
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </ScrollViewer>
+                            </Border>
+                        </Grid>
                     </Grid>
-
-                    <Border Grid.Row="5" Classes="card" Padding="0"
-                            IsVisible="{Binding HasScores}">
-                        <ScrollViewer MaxHeight="280">
-                            <ItemsControl ItemsSource="{Binding Results}">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <Grid ColumnDefinitions="180,*,Auto,Auto,Auto,Auto" Margin="14,7">
-                                            <TextBlock Grid.Column="0" Text="{Binding Id}"
-                                                       FontFamily="{DynamicResource MonoFont}" FontSize="11"
-                                                       Foreground="{DynamicResource TextDimBrush}"
-                                                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-                                            <TextBlock Grid.Column="1" Text="{Binding Description}"
-                                                       FontFamily="{DynamicResource MonoFont}" FontSize="12"
-                                                       Foreground="{DynamicResource TextBrush}"
-                                                       Margin="14,0,0,0" VerticalAlignment="Center"
-                                                       TextTrimming="CharacterEllipsis"/>
-                                            <TextBlock Grid.Column="2" Text="{Binding ValueText}"
-                                                       FontFamily="{DynamicResource MonoFont}" FontSize="12"
-                                                       MinWidth="90" TextAlignment="Right" Margin="14,0,0,0"
-                                                       Foreground="{DynamicResource TextBrush}"/>
-                                            <TextBlock Grid.Column="3" Text="{Binding Metric}"
-                                                       FontFamily="{DynamicResource MonoFont}" FontSize="11"
-                                                       MinWidth="80" TextAlignment="Right" Margin="14,0,0,0"
-                                                       Foreground="{DynamicResource TextFaintBrush}"/>
-                                            <TextBlock Grid.Column="4" Text="{Binding ScoreText}"
-                                                       FontFamily="{DynamicResource MonoFontSemi}" FontSize="13"
-                                                       MinWidth="60" TextAlignment="Right" Margin="14,0,0,0"
-                                                       Foreground="{DynamicResource AccentBrush}"/>
-                                            <TextBlock Grid.Column="5" Text="{Binding StdevPctText}"
-                                                       FontFamily="{DynamicResource MonoFont}" FontSize="11"
-                                                       MinWidth="70" TextAlignment="Right" Margin="14,0,0,0"
-                                                       Foreground="{DynamicResource TextDimBrush}"/>
-                                        </Grid>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                        </ScrollViewer>
-                    </Border>
                 </Grid>
             </TabItem>
 

@@ -1,3 +1,4 @@
+using System.Management;
 using System.Runtime.Versioning;
 using Lapassay.Core.Models;
 using LibreHardwareMonitor.Hardware;
@@ -100,19 +101,22 @@ public sealed class HardwareMonitor : IDisposable
             {
                 foreach (var s in hw.Sensors)
                 {
-                    if (s.SensorType == SensorType.Power && s.Name.Contains("Package", StringComparison.OrdinalIgnoreCase) && s.Value.HasValue)
-                        cpuPkgW ??= s.Value;
-                    else if (s.SensorType == SensorType.Temperature && s.Name.Contains("Package", StringComparison.OrdinalIgnoreCase) && s.Value.HasValue)
-                        cpuTemp ??= s.Value;
-                    else if (s.SensorType == SensorType.Clock && s.Value.HasValue && cpuMhz is null && !s.Name.Contains("Bus", StringComparison.OrdinalIgnoreCase))
-                        cpuMhz = (int)Math.Round(s.Value.Value);
+                    // Treat 0 as "no real reading" — AMD chips with non-standard SMUs report
+                    // sensor names but stream literal zeros, which we shouldn't display as "0 W"
+                    // or "0 °C".
+                    if (s.SensorType == SensorType.Power && s.Name.Contains("Package", StringComparison.OrdinalIgnoreCase) && s.Value is float pw && pw > 0)
+                        cpuPkgW ??= pw;
+                    else if (s.SensorType == SensorType.Temperature && s.Name.Contains("Package", StringComparison.OrdinalIgnoreCase) && s.Value is float pt && pt > 0)
+                        cpuTemp ??= pt;
+                    else if (s.SensorType == SensorType.Clock && s.Value is float cv && cv > 0 && cpuMhz is null && !s.Name.Contains("Bus", StringComparison.OrdinalIgnoreCase))
+                        cpuMhz = (int)Math.Round(cv);
                 }
-                // Fallback: average core temp if no package temp
+                // Fallback: max core temp if no package temp.
                 if (cpuTemp is null)
                 {
                     var coreTemps = hw.Sensors
-                        .Where(s => s.SensorType == SensorType.Temperature && s.Value.HasValue)
-                        .Select(s => s.Value!.Value)
+                        .Where(s => s.SensorType == SensorType.Temperature && s.Value is float v && v > 0)
+                        .Select(s => (double)s.Value!.Value)
                         .ToArray();
                     if (coreTemps.Length > 0) cpuTemp = coreTemps.Max();
                 }
@@ -121,15 +125,69 @@ public sealed class HardwareMonitor : IDisposable
             {
                 foreach (var s in hw.Sensors)
                 {
-                    if (s.SensorType == SensorType.Power && s.Value.HasValue)
-                        gpuW ??= s.Value;
-                    else if (s.SensorType == SensorType.Temperature && s.Value.HasValue)
-                        gpuTemp ??= s.Value;
+                    if (s.SensorType == SensorType.Power && s.Value is float pw && pw > 0)
+                        gpuW ??= pw;
+                    else if (s.SensorType == SensorType.Temperature && s.Value is float pt && pt > 0)
+                        gpuTemp ??= pt;
                 }
             }
         }
 
+        // ACPI thermal-zone fallback: many laptops expose CPU temp via WMI's
+        // MSAcpi_ThermalZoneTemperature even when LHM's MSR/SMU path returns zeros.
+        // Refresh at most once per second; the WMI query takes ~10 ms.
+        if (cpuTemp is null)
+            cpuTemp = ReadAcpiCpuTempCached();
+
         return new TelemetrySample(DateTimeOffset.UtcNow, cpuPkgW, gpuW, cpuTemp, gpuTemp, cpuMhz);
+    }
+
+    DateTimeOffset _acpiCacheAt;
+    double? _acpiCachedCpuTemp;
+
+    double? ReadAcpiCpuTempCached()
+    {
+        var now = DateTimeOffset.UtcNow;
+        if ((now - _acpiCacheAt).TotalMilliseconds < 900) return _acpiCachedCpuTemp;
+        _acpiCacheAt = now;
+        _acpiCachedCpuTemp = ReadAcpiCpuTemp();
+        return _acpiCachedCpuTemp;
+    }
+
+    static double? ReadAcpiCpuTemp()
+    {
+        try
+        {
+            using var searcher = new ManagementObjectSearcher(
+                @"\\.\root\WMI",
+                "SELECT InstanceName, CurrentTemperature FROM MSAcpi_ThermalZoneTemperature");
+            double? cpuZone = null;
+            double? bestOther = null;
+            foreach (var o in searcher.Get())
+            {
+                int k10;
+                try { k10 = Convert.ToInt32(o["CurrentTemperature"] ?? 0); }
+                catch { continue; }
+                if (k10 == 0) continue;
+                var c = k10 / 10.0 - 273.15;
+                var name = (o["InstanceName"] as string ?? "").ToUpperInvariant();
+                // Most laptops name the CPU zone "CPUZ" (or have it under "CPU" in some BIOS).
+                if (name.Contains("CPUZ") || name.Contains("CPU0") || name.Contains("CPU_"))
+                {
+                    cpuZone = c;
+                }
+                // Skip irrelevant zones for the fallback max.
+                else if (!name.Contains("BATZ") && !name.Contains("CHGZ") && !name.Contains("BAGZ") && !name.Contains("GFXZ"))
+                {
+                    if (bestOther is null || c > bestOther) bestOther = c;
+                }
+            }
+            return cpuZone ?? bestOther;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     public static TelemetrySummary Summarize(IReadOnlyList<TelemetrySample> samples)
