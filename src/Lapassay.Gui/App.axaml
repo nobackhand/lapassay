@@ -262,5 +262,36 @@
             <Setter Property="CornerRadius" Value="2"/>
             <Setter Property="Padding" Value="8,3"/>
         </Style>
+
+        <!-- ==================== Hero cards: the score readout + the in-flight banners.
+             Subtle drop shadow so they sit on the surface like instrument modules.
+             ==================== -->
+        <Style Selector="Border.hero">
+            <Setter Property="BoxShadow" Value="0 6 18 -6 #000000C0"/>
+        </Style>
+
+        <!-- ==================== Tooltips ==================== -->
+        <Style Selector="ToolTip">
+            <Setter Property="Background" Value="{DynamicResource Surface3Brush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrightBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="2"/>
+            <Setter Property="Padding" Value="10,6"/>
+            <Setter Property="FontFamily" Value="{DynamicResource MonoFont}"/>
+            <Setter Property="FontSize" Value="11"/>
+        </Style>
+
+        <!-- ==================== Status LED ==================== -->
+        <!-- Default state = amber but slightly faded; running state pumps to full opacity.
+             We don't try to animate in XAML (Avalonia 12 supports transitions but they're
+             fiddly here) — visual state changes via class on the parent control. -->
+        <Style Selector="Border.led-idle">
+            <Setter Property="Background" Value="{DynamicResource AccentDimBrush}"/>
+        </Style>
+        <Style Selector="Border.led-running">
+            <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
+            <Setter Property="BoxShadow" Value="0 0 8 0 #F97316CC"/>
+        </Style>
     </Application.Styles>
 </Application>

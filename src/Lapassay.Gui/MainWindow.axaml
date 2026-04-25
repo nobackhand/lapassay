@@ -9,6 +9,10 @@
         Width="980" Height="760" MinWidth="780" MinHeight="540"
         Title="LAPASSAY">
 
+    <Grid>
+    <!-- Faint instrument-panel dot lattice behind everything. -->
+    <vm:BackgroundGrid Spacing="22"/>
+
     <Grid RowDefinitions="Auto,Auto,*" Margin="32,28,32,28">
 
         <!-- ===================== HEADER ===================== -->
@@ -16,7 +20,10 @@
 
             <StackPanel Grid.Column="0" VerticalAlignment="Bottom" Spacing="6">
                 <StackPanel Orientation="Horizontal" Spacing="14">
-                    <Border Background="{DynamicResource AccentBrush}" Width="10" Height="10" VerticalAlignment="Center"/>
+                    <Border Width="10" Height="10" VerticalAlignment="Center"
+                            Classes.led-idle="{Binding !IsRunning}"
+                            Classes.led-running="{Binding IsRunning}"
+                            ToolTip.Tip="System status: idle / running"/>
                     <TextBlock Text="LAPASSAY"
                                FontFamily="{DynamicResource MonoFontSemi}" FontSize="22"
                                LetterSpacing="6"
@@ -29,25 +36,67 @@
             </StackPanel>
 
             <!-- ===================== EMPTY-STATE CARD (shown before any run) ===================== -->
-            <Border Grid.Column="1" IsVisible="{Binding IsEmptyState}"
+            <Border Grid.Column="1" Classes="hero" IsVisible="{Binding IsEmptyState}"
                     Background="{DynamicResource SurfaceBrush}"
                     BorderBrush="{DynamicResource BorderSoftBrush}" BorderThickness="1"
-                    Padding="24,18" MinWidth="380">
-                <StackPanel Spacing="8">
-                    <TextBlock Text="READY" Classes="section-label" Foreground="{DynamicResource AccentBrush}"/>
-                    <TextBlock Text="Click RUN to test 12 benchmarks across CPU + GPU."
-                               FontFamily="{DynamicResource MonoFont}" FontSize="13"
-                               Foreground="{DynamicResource TextBrush}"
-                               TextWrapping="Wrap"/>
-                    <TextBlock Text="Takes ~30 seconds. A score of 1000 = mid-range 2024 laptop. Higher is better."
-                               FontFamily="{DynamicResource MonoFont}" FontSize="11"
-                               Foreground="{DynamicResource TextDimBrush}"
-                               TextWrapping="Wrap"/>
+                    Padding="22,18" MinWidth="420">
+                <StackPanel Spacing="10">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock Grid.Column="0" Text="READY · 12 BENCHMARKS QUEUED"
+                                   Classes="section-label" Foreground="{DynamicResource AccentBrush}"/>
+                        <TextBlock Grid.Column="1" Text="~30 s"
+                                   FontFamily="{DynamicResource MonoFontMedium}" FontSize="9"
+                                   LetterSpacing="2"
+                                   Foreground="{DynamicResource TextDimBrush}"/>
+                    </Grid>
+
+                    <Grid ColumnDefinitions="74,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto" RowSpacing="3">
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="CPU.INT"
+                                   FontFamily="{DynamicResource MonoFontMedium}" FontSize="9"
+                                   LetterSpacing="2" Foreground="{DynamicResource TextFaintBrush}"/>
+                        <TextBlock Grid.Row="0" Grid.Column="1" Text="aes · sha256 · zstd"
+                                   FontFamily="{DynamicResource MonoFont}" FontSize="11"
+                                   Foreground="{DynamicResource TextDimBrush}"/>
+
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="CPU.FP"
+                                   FontFamily="{DynamicResource MonoFontMedium}" FontSize="9"
+                                   LetterSpacing="2" Foreground="{DynamicResource TextFaintBrush}"/>
+                        <TextBlock Grid.Row="1" Grid.Column="1" Text="sgemm · fft · mandelbrot"
+                                   FontFamily="{DynamicResource MonoFont}" FontSize="11"
+                                   Foreground="{DynamicResource TextDimBrush}"/>
+
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="MEMORY"
+                                   FontFamily="{DynamicResource MonoFontMedium}" FontSize="9"
+                                   LetterSpacing="2" Foreground="{DynamicResource TextFaintBrush}"/>
+                        <TextBlock Grid.Row="2" Grid.Column="1" Text="stream triad · pointer-chase latency"
+                                   FontFamily="{DynamicResource MonoFont}" FontSize="11"
+                                   Foreground="{DynamicResource TextDimBrush}"/>
+
+                        <TextBlock Grid.Row="3" Grid.Column="0" Text="SCALING"
+                                   FontFamily="{DynamicResource MonoFontMedium}" FontSize="9"
+                                   LetterSpacing="2" Foreground="{DynamicResource TextFaintBrush}"/>
+                        <TextBlock Grid.Row="3" Grid.Column="1" Text="multi-core efficiency at 1, 2, 4, … cores"
+                                   FontFamily="{DynamicResource MonoFont}" FontSize="11"
+                                   Foreground="{DynamicResource TextDimBrush}"/>
+
+                        <TextBlock Grid.Row="4" Grid.Column="0" Text="GPU"
+                                   FontFamily="{DynamicResource MonoFontMedium}" FontSize="9"
+                                   LetterSpacing="2" Foreground="{DynamicResource TextFaintBrush}"/>
+                        <TextBlock Grid.Row="4" Grid.Column="1" Text="matmul fp32 · matmul fp16 · ai inference"
+                                   FontFamily="{DynamicResource MonoFont}" FontSize="11"
+                                   Foreground="{DynamicResource TextDimBrush}"/>
+                    </Grid>
+
+                    <TextBlock Text="BASELINE 1000 = MID-RANGE 2024 LAPTOP · HIGHER IS BETTER"
+                               FontFamily="{DynamicResource MonoFontMedium}" FontSize="9"
+                               LetterSpacing="2"
+                               Foreground="{DynamicResource TextFaintBrush}"
+                               Margin="0,4,0,0"/>
                 </StackPanel>
             </Border>
 
             <!-- ===================== SCORE READOUT ===================== -->
-            <Border Grid.Column="1" IsVisible="{Binding HasScores}"
+            <Border Grid.Column="1" Classes="hero" IsVisible="{Binding HasScores}"
                     Background="{DynamicResource SurfaceBrush}"
                     BorderBrush="{DynamicResource BorderSoftBrush}" BorderThickness="1"
                     Padding="24,16" MinWidth="380">
@@ -69,7 +118,12 @@
                                FontFamily="{DynamicResource MonoFontLight}" FontSize="64"
                                Foreground="{DynamicResource TextBrush}"
                                LineHeight="68"/>
-                    <Border Background="{DynamicResource BorderBrightBrush}" Height="1" Margin="0,4,0,2"/>
+                    <!-- Graticule: three hairlines descending in opacity for an oscilloscope-style readout. -->
+                    <StackPanel Spacing="2" Margin="0,4,0,2">
+                        <Border Background="{DynamicResource BorderBrightBrush}" Height="1"/>
+                        <Border Background="{DynamicResource BorderSoftBrush}"   Height="1" Opacity="0.7"/>
+                        <Border Background="{DynamicResource BorderSoftBrush}"   Height="1" Opacity="0.35"/>
+                    </StackPanel>
                     <Grid ColumnDefinitions="*,*">
                         <StackPanel Grid.Column="0" IsVisible="{Binding HasCpuScore}" Spacing="2">
                             <TextBlock Text="CPU" FontFamily="{DynamicResource MonoFontMedium}"
@@ -119,7 +173,7 @@
         </Grid>
 
         <!-- Preflight banner -->
-        <Border Grid.Row="1" Margin="0,18,0,0"
+        <Border Grid.Row="1" Classes="hero" Margin="0,18,0,0"
                 Background="{DynamicResource SurfaceBrush}"
                 BorderBrush="{DynamicResource AccentDimBrush}" BorderThickness="1"
                 Padding="14,10"
@@ -186,7 +240,7 @@
                     </Border>
 
                     <!-- Progress banner: visible only while a run is in flight -->
-                    <Border Grid.Row="1" IsVisible="{Binding IsRunning}"
+                    <Border Grid.Row="1" Classes="hero" IsVisible="{Binding IsRunning}"
                             Background="{DynamicResource SurfaceBrush}"
                             BorderBrush="{DynamicResource AccentBrush}" BorderThickness="0,0,0,2"
                             Padding="14,10" Margin="0,12,0,0">
@@ -260,8 +314,9 @@
                         </Grid>
                     </Border>
 
-                    <!-- Results heading -->
-                    <Grid Grid.Row="4" Margin="0,16,0,8" ColumnDefinitions="180,*,Auto,Auto,Auto,Auto">
+                    <!-- Results heading + table: hidden until a run has produced results -->
+                    <Grid Grid.Row="4" Margin="0,16,0,8" ColumnDefinitions="180,*,Auto,Auto,Auto,Auto"
+                          IsVisible="{Binding HasScores}">
                         <TextBlock Grid.Column="0" Text="BENCHMARK"   Classes="section-label"/>
                         <TextBlock Grid.Column="1" Text="WHAT IT MEASURES" Classes="section-label" Margin="14,0,0,0"/>
                         <TextBlock Grid.Column="2" Text="VALUE"       Classes="section-label" MinWidth="90" TextAlignment="Right" Margin="14,0,0,0"/>
@@ -270,7 +325,8 @@
                         <TextBlock Grid.Column="5" Text="STDEV"       Classes="section-label" MinWidth="70" TextAlignment="Right" Margin="14,0,0,0"/>
                     </Grid>
 
-                    <Border Grid.Row="5" Classes="card" Padding="0">
+                    <Border Grid.Row="5" Classes="card" Padding="0"
+                            IsVisible="{Binding HasScores}">
                         <ScrollViewer MaxHeight="280">
                             <ItemsControl ItemsSource="{Binding Results}">
                                 <ItemsControl.ItemTemplate>
@@ -591,5 +647,6 @@
                 </Grid>
             </TabItem>
         </TabControl>
+    </Grid>
     </Grid>
 </Window>
