@@ -1,26 +1,23 @@
 # Lapassay
 
-Windows laptop CPU+GPU benchmark. Produces reproducible scores with environment capture, power/thermal telemetry, and JSON output.
+Windows laptop CPU+GPU benchmark. Produces reproducible scores with environment capture, power/thermal telemetry, and JSON output. Fully offline — no telemetry, no auto-update, no network calls.
 
-## Status
+## Download
 
-**Milestone 2 — Full CPU suite** (current). CLI + GUI frontends, shared `Lapassay.Core` engine. 11 passing tests. Next milestones add GPU suite + AI inference (M3), scoring normalization + HTML report (M4), sustained-load throttle test (M5), and polished GUI features (M6).
+Grab the latest Windows build from [Releases](https://github.com/nobackhand/lapassay/releases/latest). x64 Windows 10/11 only. Both binaries are self-contained — no installer, no .NET runtime needed (it's bundled inside the .exe).
 
-## Build
+- **`lapassay-gui.exe`** — double-click to launch the GUI.
+- **`lapassay.exe`** — command-line interface. Run `lapassay.exe --help` for usage.
+
+## Build from source
 
 ```
 dotnet build -c Release
 ```
 
-## Run
-
-Single-shot benchmark:
+CLI:
 ```
 .\src\Lapassay.Cli\bin\Release\net8.0\win-x64\lapassay.exe run --out .\results\run.json
-```
-
-Sustained / throttle test (default 10 minutes):
-```
 .\src\Lapassay.Cli\bin\Release\net8.0\win-x64\lapassay.exe sustained --duration 600
 ```
 
@@ -43,6 +40,8 @@ Two system-level settings matter:
 2. **Enable Windows Developer Mode** — required for `ID3D12Device::SetStablePowerState()` to lock GPU clocks. Without this, GPU scores have ~10–30 % run-to-run variance from DVFS. Turn it on in *Settings → System → For developers → Developer Mode*.
 
 Without these, the tool still runs; it just warns and produces noisier numbers.
+
+> **Heads-up — antivirus & the WinRing0 driver.** `LibreHardwareMonitorLib` (used for power/thermal telemetry) installs a kernel driver called `WinRing0` on first use, which lets it read CPU MSRs. Some AV products flag this driver because the same MSR-read primitive is also abused by certain miners. It's legitimate and signed by the LibreHardwareMonitor project — if your AV quarantines it, the telemetry rows just go blank but the benchmark itself still runs.
 
 ## What's measured
 
@@ -86,3 +85,7 @@ Each run records telemetry (CPU/GPU watts + temps + CPU clock) every 100 ms, sum
 - ~~**Per-core scaling** — sweeps SGEMM at 1, 2, 4, ..., N threads, reports GFLOPS curve + ideal-linear reference + scaling efficiency %. New `cpu.parallel` category in scoring. HTML report shows inline SVG scaling chart + per-step table~~ ✅
 - ~~**Live single-run telemetry chart** — Single-run tab now has a live timeline of CPU/GPU watts and temps that streams as kernels run~~ ✅
 - ~~**Battery vs AC auto-compare** — new GUI tab that detects current power state, runs full suite, walks the user through unplugging/plugging in, runs the second suite, generates a side-by-side HTML diff. Polls `Win32_Battery.BatteryStatus` once per 1.5s to detect the swap automatically.~~ ✅
+
+## License
+
+[MIT](./LICENSE). The "AS IS" clause is meaningful here — this tool intentionally pushes CPU and GPU to sustained thermal limits. Run it on hardware you're comfortable stressing.

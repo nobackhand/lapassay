@@ -15,7 +15,7 @@ if (args.Length == 0 || args[0] is "--help" or "-h")
 
 if (args[0] is "--version")
 {
-    Console.WriteLine("lapassay 0.5.0");
+    Console.WriteLine("lapassay 0.6.0");
     return 0;
 }
 
