@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Runtime.Versioning;
 using System.Text.Json;
 using Lapassay.Core;
@@ -43,8 +44,12 @@ int RunSingle(string[] cmdArgs)
             case "--gpu": gpu = true; break;
             case "--no-html": noHtml = true; break;
             case "--out" when i + 1 < cmdArgs.Length: outPath = cmdArgs[++i]; break;
-            case "--cpu-n" when i + 1 < cmdArgs.Length: cpuN = int.Parse(cmdArgs[++i]); break;
-            case "--gpu-n" when i + 1 < cmdArgs.Length: gpuN = int.Parse(cmdArgs[++i]); break;
+            case "--cpu-n" when i + 1 < cmdArgs.Length:
+                if (!TryParseIntArg(cmdArgs[++i], "--cpu-n", out cpuN)) return 2;
+                break;
+            case "--gpu-n" when i + 1 < cmdArgs.Length:
+                if (!TryParseIntArg(cmdArgs[++i], "--gpu-n", out gpuN)) return 2;
+                break;
             default:
                 Console.Error.WriteLine($"Unknown option: {cmdArgs[i]}");
                 return 2;
@@ -87,7 +92,9 @@ int RunSustained(string[] cmdArgs)
     {
         switch (cmdArgs[i])
         {
-            case "--duration" when i + 1 < cmdArgs.Length: duration = double.Parse(cmdArgs[++i]); break;
+            case "--duration" when i + 1 < cmdArgs.Length:
+                if (!TryParseDoubleArg(cmdArgs[++i], "--duration", out duration)) return 2;
+                break;
             case "--out" when i + 1 < cmdArgs.Length: outPath = cmdArgs[++i]; break;
             case "--no-html": noHtml = true; break;
             default:
@@ -157,12 +164,12 @@ int CompareRuns(string[] cmdArgs)
     if (!File.Exists(aPath)) { Console.Error.WriteLine($"File not found: {aPath}"); return 1; }
     if (!File.Exists(bPath)) { Console.Error.WriteLine($"File not found: {bPath}"); return 1; }
 
-    var jsonOpts = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
-    BenchmarkRun a, b;
+    var labelA = Path.GetFileNameWithoutExtension(aPath);
+    var labelB = Path.GetFileNameWithoutExtension(bPath);
+    RunComparison cmp;
     try
     {
-        a = JsonSerializer.Deserialize<BenchmarkRun>(File.ReadAllText(aPath), jsonOpts)!;
-        b = JsonSerializer.Deserialize<BenchmarkRun>(File.ReadAllText(bPath), jsonOpts)!;
+        cmp = DiffService.BuildDiff(aPath, bPath, labelA, labelB);
     }
     catch (Exception ex)
     {
@@ -170,16 +177,12 @@ int CompareRuns(string[] cmdArgs)
         return 1;
     }
 
-    var labelA = Path.GetFileNameWithoutExtension(aPath);
-    var labelB = Path.GetFileNameWithoutExtension(bPath);
-    var cmp = Compare.Diff(a, b, labelA, labelB);
-
     PrintCompareConsole(cmp);
 
     if (!noHtml)
     {
         outPath ??= Path.Combine(Path.GetDirectoryName(bPath) ?? ".", $"diff-{labelA}-vs-{labelB}.html");
-        HtmlReport.WriteToFile(cmp, outPath);
+        DiffService.WriteHtml(cmp, outPath);
         Console.WriteLine();
         Console.WriteLine($"Wrote {outPath}");
     }
@@ -242,18 +245,14 @@ int RenderReport(string[] cmdArgs)
     using var doc = JsonDocument.Parse(json);
     var root = doc.RootElement;
 
-    var jsonOpts = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
-
     if (root.TryGetProperty("verdict", out _))
     {
-        var sustained = JsonSerializer.Deserialize<SustainedRun>(json, jsonOpts)
-            ?? throw new InvalidOperationException("Failed to parse SustainedRun");
+        var sustained = JsonReport.DeserializeSustained(json);
         HtmlReport.WriteToFile(sustained, outPath, anonymize);
     }
     else
     {
-        var single = JsonSerializer.Deserialize<BenchmarkRun>(json, jsonOpts)
-            ?? throw new InvalidOperationException("Failed to parse BenchmarkRun");
+        var single = JsonReport.Deserialize(json);
         HtmlReport.WriteToFile(single, outPath, anonymize);
     }
 
@@ -270,6 +269,20 @@ static void PrintPreflight()
         foreach (var m in preflight.Messages) Console.WriteLine("  " + m);
         Console.WriteLine();
     }
+}
+
+static bool TryParseIntArg(string raw, string flag, out int value)
+{
+    if (int.TryParse(raw, NumberStyles.Integer, CultureInfo.InvariantCulture, out value)) return true;
+    Console.Error.WriteLine($"Error: {flag} expects an integer, got '{raw}'.");
+    return false;
+}
+
+static bool TryParseDoubleArg(string raw, string flag, out double value)
+{
+    if (double.TryParse(raw, NumberStyles.Float, CultureInfo.InvariantCulture, out value)) return true;
+    Console.Error.WriteLine($"Error: {flag} expects a number, got '{raw}'.");
+    return false;
 }
 
 static void PrintUsage()

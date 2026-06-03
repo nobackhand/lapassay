@@ -1,6 +1,10 @@
 # 2026-06-03 — Modernization, UX, and polish
 
-Status: **Phase 1 shipped** (commit on `claude/zealous-carson-MWtGe`); **Phases 2–3 planned, not yet implemented.** Authored 2026-06-03 against v0.6.0.
+Status: **Phase 1 shipped**; **Phase 2.1–2.4 + 3.3 shipped** (all on `claude/zealous-carson-MWtGe`); **2.5, 2.6, 3.1, 3.2, 3.4 remain.** Authored 2026-06-03 against v0.6.0.
+
+> Items below carry `✅ SHIPPED` once landed. Everything shipped so far is verifiable by
+> inspection (config / pure logic / cross-platform tests); none of it was built or run in the
+> sandbox — the new CI job (2.1) is what actually compiles + tests it on Windows.
 
 ## Context
 
@@ -62,7 +66,7 @@ tests; open a generated `.html` at ~390px to confirm tables scroll inside their 
 
 ## Phase 2 — Structural improvements
 
-### 2.1 CI (do this first) — build + test on a real Windows runner
+### 2.1 CI (do this first) — build + test on a real Windows runner ✅ SHIPPED
 
 **Why first:** closes the "can't build locally" gap so every later change is verified.
 
@@ -79,7 +83,7 @@ tests; open a generated `.html` at ~390px to confirm tables scroll inside their 
 
 **Verification:** push a no-op commit → both jobs green; the 5 Phase-1 report tests show as run.
 
-### 2.2 Route ALL JSON reads through `JsonReport.Deserialize` (fixes a latent bug)
+### 2.2 Route ALL JSON reads through `JsonReport.Deserialize` (fixes a latent bug) ✅ SHIPPED
 
 **Bug:** `JsonReport.Opts` sets `NumberHandling = AllowNamedFloatingPointLiterals`, so a run
 that serializes `NaN`/`Infinity` (e.g. a degenerate rate when a kernel medians to ~0s) writes
@@ -98,7 +102,7 @@ same canonical `Opts`).
 **Verification:** craft a JSON with an `Infinity` value → `compare`/history/report all load it.
 Existing files still load unchanged.
 
-### 2.3 Extract diff orchestration out of code-behind
+### 2.3 Extract diff orchestration out of code-behind ✅ SHIPPED
 
 `MainWindow.axaml.cs` repeats the same block 3× (history compare, battery-AC diff, file-picker
 compare): deserialize A+B → `Compare.Diff` → `HtmlReport.WriteToFile` → open in browser.
@@ -114,7 +118,7 @@ Code-behind handlers shrink to: compute labels → `DiffService.WriteDiff(...)` 
 **Verification:** all three GUI diff paths + CLI `compare` still produce identical HTML; manual
 click-through on Windows.
 
-### 2.4 Harden CLI argument parsing
+### 2.4 Harden CLI argument parsing ✅ SHIPPED
 
 `src/Lapassay.Cli/Program.cs`: `int.Parse`/`double.Parse` (`--cpu-n`, `--gpu-n` ~lines 46–47;
 `--duration` ~line 90) use the current culture and throw an unhandled `FormatException` with a
@@ -170,7 +174,7 @@ hostname containing `-` mislabels the report. **Change:** add explicit `Hostname
 `CapturedAt` already exist on `EnvironmentInfo` — pass hostname through structurally (it's also
 embeddable in the run record) instead of re-deriving it. Additive; no breaking schema change.
 
-### 3.3 Document the score-bar constants
+### 3.3 Document the score-bar constants ✅ SHIPPED
 
 `HtmlReport` benchmark bar uses `b.Score / 15.0` ("1500 = full bar") and the diff bar clamps at
 ±50% — undocumented magic. Hoist to named `const` with a one-line rationale each.

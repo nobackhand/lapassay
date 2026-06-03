@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build-test:
+    name: Build & test (Windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore
+        run: dotnet restore Lapassay.sln
+
+      - name: Build
+        run: dotnet build Lapassay.sln -c Release --no-restore
+
+      - name: Test
+        run: dotnet test Lapassay.sln -c Release --no-build --verbosity normal
+
+  # The app itself is Windows-only (D3D12/WMI/RAPL), but Core's pure logic — scoring,
+  # JSON, the HTML report, diffing — is cross-platform. This job builds Core + the test
+  # project on Linux and runs only the OS-agnostic suites, so those regress loudly and
+  # cheaply without waiting on a Windows runner. Non-blocking by design.
+  core-tests-linux:
+    name: Core tests (Linux, OS-agnostic only)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Test (report / JSON / diff / scoring)
+        run: >
+          dotnet test tests/Lapassay.Core.Tests/Lapassay.Core.Tests.csproj
+          -c Release
+          --filter "FullyQualifiedName~JsonReportTests|FullyQualifiedName~HtmlReportTests|FullyQualifiedName~DiffServiceTests"

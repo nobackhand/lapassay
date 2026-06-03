@@ -1,5 +1,7 @@
 # Lapassay
 
+[![CI](https://github.com/nobackhand/lapassay/actions/workflows/ci.yml/badge.svg)](https://github.com/nobackhand/lapassay/actions/workflows/ci.yml)
+
 Windows laptop CPU+GPU benchmark. Produces reproducible scores with environment capture, power/thermal telemetry, and JSON output. Fully offline — no telemetry, no auto-update, no network calls.
 
 ## Download

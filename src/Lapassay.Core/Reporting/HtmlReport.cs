@@ -185,6 +185,11 @@ footer a { color: var(--muted); }
 }
 ";
 
+    // A benchmark scoring this much (1.5× the 1000-point baseline) fills the score bar completely.
+    const double FullBarScore = 1500.0;
+    // Per-benchmark diff bars saturate at ±this percent, so one outlier can't dwarf the rest.
+    const double DiffBarSaturationPct = 50.0;
+
     // -------------------- hero blocks --------------------
 
     static string HeroSingle(BenchmarkRun run)
@@ -287,7 +292,7 @@ footer a { color: var(--muted); }
             var deltaSign = d.DeltaPct >= 0 ? "+" : "";
             // For lower-is-better, flip the sign on the bar so 'better' is always green (right side).
             var fillPct = d.HigherIsBetter ? d.DeltaPct : -d.DeltaPct;
-            var clamped = Math.Max(-50.0, Math.Min(50.0, fillPct));
+            var clamped = Math.Max(-DiffBarSaturationPct, Math.Min(DiffBarSaturationPct, fillPct));
             var halfBar = Math.Abs(clamped); // 0..50 → 0..50% of half
             var fillCls = clamped >= 0 ? "pos" : "neg";
 
@@ -397,7 +402,7 @@ footer a { color: var(--muted); }
         foreach (var b in benches)
         {
             var stdevPct = b.Stats.Median != 0 ? b.Stats.Stdev / b.Stats.Median * 100 : 0;
-            var fillPct = Math.Min(100, Math.Max(0, b.Score / 15.0)); // 1500 score = full bar
+            var fillPct = Math.Min(100, Math.Max(0, b.Score / FullBarScore * 100));
             var barClass = b.Kind == "gpu" ? "score-bar gpu" : "score-bar";
             sb.AppendLine("    <tr>");
             sb.AppendLine($"      <td class=\"id\">{Esc(b.Id)}</td>");

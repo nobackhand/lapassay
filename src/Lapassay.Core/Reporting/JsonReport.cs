@@ -27,6 +27,10 @@ public static class JsonReport
     }
 
     public static string Serialize(SustainedRun run) => JsonSerializer.Serialize(run, Opts);
+    public static SustainedRun DeserializeSustained(string json) =>
+        JsonSerializer.Deserialize<SustainedRun>(json, Opts)
+        ?? throw new InvalidOperationException("Deserialize returned null");
+
     public static void WriteToFile(SustainedRun run, string path)
     {
         var dir = Path.GetDirectoryName(path);
