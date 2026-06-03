@@ -346,11 +346,9 @@ public partial class MainWindow : Window
         b.FirstJsonPath = firstRun.Value.savedJson;
 
         b.State = BatteryAcState.AwaitingSwitch;
-        b.StatusText = $"First run done. Now switch to {PowerStateDetector.Describe(b.SecondRunPowerExpected)} (un{(b.SecondRunPowerExpected == PowerState.OnBattery ? "" : "")}plug the charger) and click Continue.";
-        if (b.SecondRunPowerExpected == PowerState.OnBattery)
-            b.StatusText = "First run done. Now UNPLUG the charger and click Continue.";
-        else
-            b.StatusText = "First run done. Now PLUG IN the charger and click Continue.";
+        b.StatusText = b.SecondRunPowerExpected == PowerState.OnBattery
+            ? "First run done. Now UNPLUG the charger and click Continue."
+            : "First run done. Now PLUG IN the charger and click Continue.";
     }
 
     async void OnBatteryAcContinueClicked(object? sender, RoutedEventArgs e)

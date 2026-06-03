@@ -125,7 +125,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
         CategoryRows.Clear();
         foreach (var c in scores.Categories)
-            CategoryRows.Add(new CategoryRow(PrettyCategory(c.Name), c.Score.ToString()));
+            CategoryRows.Add(new CategoryRow(CategoryLabel(c.Name), c.Score.ToString()));
     }
 
     public void SetProgress(KernelProgress p)
@@ -143,17 +143,6 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         ProgressIndex = 0;
         ProgressTotal = 0;
     }
-
-    static string PrettyCategory(string raw) => raw switch
-    {
-        "cpu.integer"  => "CPU int",
-        "cpu.float"    => "CPU FP",
-        "cpu.memory"   => "Memory",
-        "cpu.parallel" => "Scaling",
-        "gpu.compute"  => "GPU compute",
-        "gpu.ai"       => "GPU AI",
-        _              => raw,
-    };
 
     public void RefreshPreflight()
     {

@@ -305,7 +305,7 @@ static void PrintSummary(BenchmarkRun run)
         Console.WriteLine();
         Console.WriteLine("  Subscores by category:");
         foreach (var c in run.Scores.Categories)
-            Console.WriteLine($"    {c.Name,-15} {c.Score,4}   ({c.BenchmarkCount} kernels)");
+            Console.WriteLine($"    {BenchmarkCatalog.CategoryLabel(c.Name),-15} {c.Score,4}   ({c.BenchmarkCount} kernels)");
     }
     Console.WriteLine();
     Console.WriteLine($"Host: {Environment.MachineName}");

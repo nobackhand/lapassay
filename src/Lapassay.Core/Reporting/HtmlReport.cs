@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text;
 using System.Web;
+using Lapassay.Core;
 using Lapassay.Core.Models;
 
 namespace Lapassay.Core.Reporting;
@@ -117,7 +118,7 @@ main { max-width: 880px; margin: 32px auto; padding: 0 20px 60px; }
 .hero h1 { margin: 0 0 4px; font-size: 14px; font-weight: 500; opacity: .85; letter-spacing: .04em; text-transform: uppercase; }
 .hero .score { font-size: 64px; font-weight: 700; line-height: 1; margin: 4px 0 6px; }
 .hero .score-label { font-size: 12px; opacity: .85; letter-spacing: .04em; text-transform: uppercase; }
-.hero .subs { display: flex; gap: 28px; margin-top: 14px; }
+.hero .subs { display: flex; flex-wrap: wrap; gap: 14px 28px; margin-top: 14px; }
 .hero .sub { }
 .hero .sub-value { font-size: 22px; font-weight: 600; }
 .hero .sub-label { font-size: 11px; opacity: .85; text-transform: uppercase; letter-spacing: .04em; }
@@ -134,9 +135,12 @@ section h2 { margin: 0 0 12px; font-size: 13px; font-weight: 600; letter-spacing
 
 .env-grid { display: grid; grid-template-columns: max-content 1fr; gap: 6px 24px; font-size: 14px; }
 .env-grid dt { color: var(--muted); }
-.env-grid dd { margin: 0; font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace; font-size: 13px; }
+.env-grid dd { margin: 0; font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace; font-size: 13px; word-break: break-word; }
 
-table.bench { width: 100%; border-collapse: collapse; font-size: 14px; }
+/* Wide tables stay readable on phones: scroll within the card instead of forcing
+   the whole page sideways. */
+.table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+table.bench { width: 100%; border-collapse: collapse; font-size: 14px; min-width: 460px; }
 table.bench th { text-align: left; padding: 8px 8px 10px; font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; border-bottom: 1px solid var(--border); }
 table.bench th.num { text-align: right; }
 table.bench td { padding: 10px 8px; border-bottom: 1px solid var(--soft); }
@@ -169,6 +173,16 @@ table.bench tr:last-child td { border-bottom: none; }
 
 footer { text-align: center; font-size: 11px; color: var(--muted); margin-top: 24px; padding: 8px; }
 footer a { color: var(--muted); }
+
+@media (max-width: 560px) {
+    main { margin: 16px auto; padding: 0 14px 40px; }
+    .hero { padding: 22px 20px; border-radius: 10px; }
+    .hero .score { font-size: 48px; }
+    section { padding: 16px; }
+    .env-grid { grid-template-columns: 1fr; gap: 2px 0; }
+    .env-grid dt { margin-top: 8px; }
+    .env-grid dt:first-of-type { margin-top: 0; }
+}
 ";
 
     // -------------------- hero blocks --------------------
@@ -200,7 +214,7 @@ footer a { color: var(--muted); }
             sb.AppendLine("  <div class=\"category-chips\">");
             foreach (var c in run.Scores.Categories)
             {
-                sb.AppendLine($"    <span class=\"chip\"><span class=\"chip-label\">{Esc(PrettyCategory(c.Name))}</span><span class=\"chip-score\">{c.Score}</span></span>");
+                sb.AppendLine($"    <span class=\"chip\"><span class=\"chip-label\">{Esc(BenchmarkCatalog.CategoryLabel(c.Name))}</span><span class=\"chip-score\">{c.Score}</span></span>");
             }
             sb.AppendLine("  </div>");
         }
@@ -208,17 +222,6 @@ footer a { color: var(--muted); }
         sb.AppendLine("</div>");
         return sb.ToString();
     }
-
-    static string PrettyCategory(string raw) => raw switch
-    {
-        "cpu.integer"  => "CPU integer",
-        "cpu.float"    => "CPU float",
-        "cpu.memory"   => "Memory",
-        "cpu.parallel" => "CPU parallel",
-        "gpu.compute"  => "GPU compute",
-        "gpu.ai"       => "GPU AI",
-        _              => raw,
-    };
 
     static string HeroDiff(RunComparison cmp)
     {
@@ -266,6 +269,7 @@ footer a { color: var(--muted); }
         var sb = new StringBuilder();
         sb.AppendLine("<section>");
         sb.AppendLine("  <h2>Per-benchmark delta</h2>");
+        sb.AppendLine("  <div class=\"table-wrap\">");
         sb.AppendLine("  <table class=\"bench\">");
         sb.AppendLine("    <thead><tr>");
         sb.AppendLine("      <th>ID</th>");
@@ -303,6 +307,7 @@ footer a { color: var(--muted); }
         }
 
         sb.AppendLine("    </tbody></table>");
+        sb.AppendLine("  </div>");
         sb.AppendLine("  <p style=\"font-size:11px;color:#59636e;margin-top:10px\">Bars saturate at &plusmn;50%. Green = B improved over A; red = regressed.</p>");
         sb.AppendLine("</section>");
         return sb.ToString();
@@ -380,6 +385,7 @@ footer a { color: var(--muted); }
         var sb = new StringBuilder();
         sb.AppendLine("<section>");
         sb.AppendLine("  <h2>Benchmarks</h2>");
+        sb.AppendLine("  <div class=\"table-wrap\">");
         sb.AppendLine("  <table class=\"bench\">");
         sb.AppendLine("    <thead><tr>");
         sb.AppendLine("      <th>ID</th>");
@@ -408,6 +414,7 @@ footer a { color: var(--muted); }
         }
         sb.AppendLine("    </tbody>");
         sb.AppendLine("  </table>");
+        sb.AppendLine("  </div>");
         sb.AppendLine("</section>");
         return sb.ToString();
     }
@@ -424,6 +431,7 @@ footer a { color: var(--muted); }
         sb.AppendLine("    <span><span class=\"swatch\" style=\"background:#0969DA\"></span>Measured GFLOPS</span>");
         sb.AppendLine("    <span style=\"color:#59636e\"><span class=\"swatch dash\"></span>Ideal linear scaling</span>");
         sb.AppendLine("  </div>");
+        sb.AppendLine("  <div class=\"table-wrap\">");
         sb.AppendLine("  <table class=\"bench\" style=\"margin-top:10px\">");
         sb.AppendLine("    <thead><tr><th>Threads</th><th class=\"num\">GFLOPS</th><th class=\"num\">Efficiency</th></tr></thead><tbody>");
         foreach (var p in curve)
@@ -435,6 +443,7 @@ footer a { color: var(--muted); }
             sb.AppendLine("    </tr>");
         }
         sb.AppendLine("    </tbody></table>");
+        sb.AppendLine("  </div>");
         sb.AppendLine("</section>");
         return sb.ToString();
     }

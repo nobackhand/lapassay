@@ -36,4 +36,22 @@ public static class BenchmarkCatalog
 
     public static string Describe(string id) =>
         ShortDescriptions.TryGetValue(id, out var d) ? d : id;
+
+    /// <summary>
+    /// Human-readable label for a scoring category id (e.g. "cpu.integer" → "CPU integer").
+    /// Single source of truth so the CLI summary, GUI score chips, and HTML report all
+    /// agree — previously each surface carried its own divergent mapping.
+    /// </summary>
+    static readonly Dictionary<string, string> CategoryLabels = new()
+    {
+        ["cpu.integer"]  = "CPU integer",
+        ["cpu.float"]    = "CPU float",
+        ["cpu.memory"]   = "Memory",
+        ["cpu.parallel"] = "CPU scaling",
+        ["gpu.compute"]  = "GPU compute",
+        ["gpu.ai"]       = "GPU AI",
+    };
+
+    public static string CategoryLabel(string categoryId) =>
+        CategoryLabels.TryGetValue(categoryId, out var label) ? label : categoryId;
 }
