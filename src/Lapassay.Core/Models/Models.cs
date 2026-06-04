@@ -50,6 +50,10 @@ public record TelemetrySummary(
     int? CpuMhzMin,
     int? CpuMhzMax);
 
+/// <summary>Spread of a benchmark's primary value across N repeated runs (<c>--repeat</c>).
+/// <see cref="BenchmarkResult.Value"/> stays the median; this records the distribution.</summary>
+public record Repeats(double[] Values, double Median, double P25, double P75);
+
 public record BenchmarkResult(
     string Id,
     string Kind,
@@ -58,7 +62,8 @@ public record BenchmarkResult(
     int Score,
     BenchmarkStats Stats,
     double DurationSec,
-    TelemetrySummary Telemetry);
+    TelemetrySummary Telemetry,
+    Repeats? Repeats = null);
 
 public record CategoryScore(string Name, int Score, int BenchmarkCount);
 

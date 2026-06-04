@@ -46,11 +46,18 @@ public static class Compare
         "cpu.latency.pointerchase",
     };
 
+    /// <summary>Map a legacy benchmark id to its current canonical id so cross-version diffs
+    /// still pair up. v1.2 renamed <c>gpu.matmul.fp16.N</c> → <c>gpu.matmul.fp16alu.N</c>.</summary>
+    static string Canonical(string id) =>
+        id.StartsWith("gpu.matmul.fp16.", StringComparison.Ordinal)
+            ? "gpu.matmul.fp16alu." + id["gpu.matmul.fp16.".Length..]
+            : id;
+
     public static RunComparison Diff(BenchmarkRun a, BenchmarkRun b, string? labelA = null, string? labelB = null)
     {
         // Pair benchmarks by id; only include those present in both.
-        var byIdA = a.Benchmarks.ToDictionary(x => x.Id);
-        var byIdB = b.Benchmarks.ToDictionary(x => x.Id);
+        var byIdA = a.Benchmarks.ToDictionary(x => Canonical(x.Id));
+        var byIdB = b.Benchmarks.ToDictionary(x => Canonical(x.Id));
         var sharedIds = byIdA.Keys.Intersect(byIdB.Keys).ToList();
 
         // Order: kind (cpu before gpu), then by id alphabetically — stable, scannable.

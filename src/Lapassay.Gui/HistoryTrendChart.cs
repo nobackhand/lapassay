@@ -17,13 +17,13 @@ namespace Lapassay.Gui;
 /// </summary>
 public sealed class HistoryTrendChart : Control
 {
-    static readonly IBrush BgBrush   = new SolidColorBrush(Color.Parse("#16110D"));
-    static readonly IBrush DimText   = new SolidColorBrush(Color.Parse("#998B78"));
-    static readonly Pen OverallPen = new(new SolidColorBrush(Color.Parse("#F97316")), 2);
-    static readonly Pen CpuPen     = new(new SolidColorBrush(Color.Parse("#A3E635")), 1.5) { DashStyle = DashStyle.Dash };
-    static readonly Pen GpuPen     = new(new SolidColorBrush(Color.Parse("#D69D45")), 1.5) { DashStyle = DashStyle.Dash };
-    static readonly Pen GridPen    = new(new SolidColorBrush(Color.FromArgb(40, 240, 230, 210)), 1);
-    static readonly IBrush DotBrush = new SolidColorBrush(Color.Parse("#F97316"));
+    static readonly IBrush BgBrush   = InstrumentPalette.BgBrush;
+    static readonly IBrush DimText   = InstrumentPalette.TextDimBrush;
+    static readonly Pen OverallPen = new(new SolidColorBrush(InstrumentPalette.Accent), 2);
+    static readonly Pen CpuPen     = new(new SolidColorBrush(InstrumentPalette.Ok), 1.5) { DashStyle = DashStyle.Dash };
+    static readonly Pen GpuPen     = new(new SolidColorBrush(InstrumentPalette.Warn), 1.5) { DashStyle = DashStyle.Dash };
+    static readonly Pen GridPen    = InstrumentPalette.GridPen;
+    static readonly IBrush DotBrush = new SolidColorBrush(InstrumentPalette.Accent);
 
     public static readonly StyledProperty<IReadOnlyList<HistoryEntry>?> EntriesProperty =
         AvaloniaProperty.Register<HistoryTrendChart, IReadOnlyList<HistoryEntry>?>(nameof(Entries));

@@ -35,6 +35,7 @@ int RunSingle(string[] cmdArgs)
     bool noHtml = false;
     string? outPath = null;
     int cpuN = 1024, gpuN = 2048;
+    int repeat = 1, repeatCooldownSec = 30;
 
     for (var i = 0; i < cmdArgs.Length; i++)
     {
@@ -50,6 +51,12 @@ int RunSingle(string[] cmdArgs)
             case "--gpu-n" when i + 1 < cmdArgs.Length:
                 if (!TryParseIntArg(cmdArgs[++i], "--gpu-n", out gpuN)) return 2;
                 break;
+            case "--repeat" when i + 1 < cmdArgs.Length:
+                if (!TryParseIntArg(cmdArgs[++i], "--repeat", out repeat)) return 2;
+                break;
+            case "--repeat-cooldown-sec" when i + 1 < cmdArgs.Length:
+                if (!TryParseIntArg(cmdArgs[++i], "--repeat-cooldown-sec", out repeatCooldownSec)) return 2;
+                break;
             default:
                 Console.Error.WriteLine($"Unknown option: {cmdArgs[i]}");
                 return 2;
@@ -62,7 +69,10 @@ int RunSingle(string[] cmdArgs)
 
     try
     {
-        var run = Runner.Run(new Runner.RunOptions(cpu, gpu, cpuN, gpuN), Console.WriteLine);
+        var runOptions = new Runner.RunOptions(cpu, gpu, cpuN, gpuN);
+        var run = repeat > 1
+            ? Runner.RunRepeated(runOptions, repeat, repeatCooldownSec, Console.WriteLine)
+            : Runner.Run(runOptions, Console.WriteLine);
         JsonReport.WriteToFile(run, outPath);
         Console.WriteLine();
         Console.WriteLine($"Wrote {outPath}");
@@ -291,6 +301,7 @@ static void PrintUsage()
     Console.WriteLine();
     Console.WriteLine("Usage:");
     Console.WriteLine("  lapassay run       [--cpu] [--gpu] [--out <path>] [--cpu-n N] [--gpu-n N] [--no-html]");
+    Console.WriteLine("                     [--repeat N] [--repeat-cooldown-sec S]");
     Console.WriteLine("  lapassay sustained [--duration SEC] [--out <path>] [--no-html]");
     Console.WriteLine("  lapassay report    <input.json> [--out path] [--anonymize]");
     Console.WriteLine("  lapassay compare   <a.json> <b.json> [--out diff.html] [--no-html]");
@@ -298,6 +309,9 @@ static void PrintUsage()
     Console.WriteLine("Notes:");
     Console.WriteLine("  * `run` and `sustained` write a JSON file and (by default) a self-contained HTML report next to it.");
     Console.WriteLine("  * Use `report --anonymize` to render an HTML stripped of hostname / CPU model string for sharing.");
+    Console.WriteLine("  * `--repeat N` runs the suite N times and reports the per-benchmark median + IQR (p25–p75).");
+    Console.WriteLine("    A cooldown (`--repeat-cooldown-sec`, default 30) runs between passes so thermal carry-over");
+    Console.WriteLine("    doesn't understate the spread.");
     Console.WriteLine("  * `compare` diffs two single-shot runs (BIOS update, AC vs battery, before/after a tweak).");
     Console.WriteLine("  * Sustained run accepts Ctrl-C for early exit; partial JSON + HTML are still written.");
 }
@@ -327,12 +341,16 @@ static void PrintSummary(BenchmarkRun run)
         Console.WriteLine($"GPU:  {g.Model}");
     Console.WriteLine($"RAM:  {run.Environment.Ram.TotalGb} GB @ {run.Environment.Ram.SpeedMhz} MHz");
     Console.WriteLine();
-    Console.WriteLine($"  {"Benchmark",-30} {"Metric",-10} {"Value",10} {"Score",6} {"Stdev%",8}");
+    var repeatCount = run.Benchmarks.FirstOrDefault(b => b.Repeats is not null)?.Repeats?.Values.Length;
+    if (repeatCount is > 1)
+        Console.WriteLine($"  Aggregated over {repeatCount} runs — Value is the median; IQR is the p25–p75 spread.");
+    Console.WriteLine($"  {"Benchmark",-30} {"Metric",-10} {"Value",10} {"Score",6} {"Stdev%",8}  {"IQR (p25–p75)",-18}");
     Console.WriteLine($"  {new string('-', 72)}");
     foreach (var b in run.Benchmarks)
     {
         var stdevPct = b.Stats.Median != 0 ? b.Stats.Stdev / b.Stats.Median * 100 : 0;
-        Console.WriteLine($"  {b.Id,-30} {b.Metric,-10} {b.Value,10:F1} {b.Score,6} {stdevPct,7:F2}%");
+        var iqr = b.Repeats is { } r ? $"[{r.P25:F1}–{r.P75:F1}]" : "";
+        Console.WriteLine($"  {b.Id,-30} {b.Metric,-10} {b.Value,10:F1} {b.Score,6} {stdevPct,7:F2}%  {iqr,-18}");
     }
 }
 

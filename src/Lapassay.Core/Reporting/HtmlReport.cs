@@ -83,6 +83,7 @@ public static class HtmlReport
         sb.AppendLine("<html lang=\"en\"><head>");
         sb.AppendLine("<meta charset=\"utf-8\">");
         sb.AppendLine("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">");
+        sb.AppendLine("<meta name=\"color-scheme\" content=\"light dark\">");
         sb.AppendLine($"<title>{Esc(title)}</title>");
         sb.AppendLine("<style>");
         sb.AppendLine(Css);
@@ -102,15 +103,17 @@ public static class HtmlReport
     --fg: #1f2328;
     --muted: #59636e;
     --bg: #ffffff;
+    --page: #f6f8fa;
     --soft: #f6f8fa;
     --border: #d0d7de;
+    --grid: #eaeef2;
     --blue: #0969DA;
     --green: #1A7F37;
     --red: #CF222E;
     --amber: #9A6700;
 }
 * { box-sizing: border-box; }
-html, body { margin: 0; padding: 0; background: var(--soft); color: var(--fg); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+html, body { margin: 0; padding: 0; background: var(--page); color: var(--fg); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
 main { max-width: 880px; margin: 32px auto; padding: 0 20px 60px; }
 
 .hero { background: var(--blue); color: white; border-radius: 12px; padding: 28px 32px; margin-bottom: 24px; }
@@ -183,6 +186,22 @@ footer a { color: var(--muted); }
     .env-grid dt { margin-top: 8px; }
     .env-grid dt:first-of-type { margin-top: 0; }
 }
+
+/* Opt-in dark theme — values taken from the app's instrument palette (App.axaml),
+   which are already known to read well together. Light mode is unchanged. The
+   colored hero cards and the saturated data-series colors stay as-is; only the
+   'paper' (page, cards, text, borders, grid) flips. */
+@media (prefers-color-scheme: dark) {
+    :root {
+        --fg: #F4EDE4;
+        --muted: #998B78;
+        --bg: #16110D;
+        --page: #0C0A09;
+        --soft: #221A13;
+        --border: #2A2118;
+        --grid: #1C1610;
+    }
+}
 ";
 
     // A benchmark scoring this much (1.5× the 1000-point baseline) fills the score bar completely.
@@ -223,6 +242,9 @@ footer a { color: var(--muted); }
             }
             sb.AppendLine("  </div>");
         }
+        var repeatN = run.Benchmarks.FirstOrDefault(b => b.Repeats is not null)?.Repeats?.Values.Length;
+        if (repeatN is > 1)
+            sb.AppendLine($"  <div class=\"baseline\">Median of {repeatN} runs &middot; spread shown as [p25&ndash;p75].</div>");
         sb.AppendLine("  <div class=\"baseline\">Baseline: mid-range 2024 laptop = 1000.</div>");
         sb.AppendLine("</div>");
         return sb.ToString();
@@ -404,9 +426,12 @@ footer a { color: var(--muted); }
             var stdevPct = b.Stats.Median != 0 ? b.Stats.Stdev / b.Stats.Median * 100 : 0;
             var fillPct = Math.Min(100, Math.Max(0, b.Score / FullBarScore * 100));
             var barClass = b.Kind == "gpu" ? "score-bar gpu" : "score-bar";
+            var valueCell = b.Repeats is { } rep
+                ? $"{b.Value.ToString("F1", CultureInfo.InvariantCulture)} <span style=\"opacity:.5;font-size:11px\">[{rep.P25.ToString("F1", CultureInfo.InvariantCulture)}&ndash;{rep.P75.ToString("F1", CultureInfo.InvariantCulture)}]</span>"
+                : b.Value.ToString("F1", CultureInfo.InvariantCulture);
             sb.AppendLine("    <tr>");
             sb.AppendLine($"      <td class=\"id\">{Esc(b.Id)}</td>");
-            sb.AppendLine($"      <td class=\"num\">{b.Value.ToString("F1", CultureInfo.InvariantCulture)}</td>");
+            sb.AppendLine($"      <td class=\"num\">{valueCell}</td>");
             sb.AppendLine($"      <td>{Esc(b.Metric)}</td>");
             sb.AppendLine($"      <td class=\"num\">{stdevPct.ToString("F1", CultureInfo.InvariantCulture)}%</td>");
             sb.AppendLine("      <td class=\"num\">");
@@ -485,7 +510,7 @@ footer a { color: var(--muted); }
         for (var i = 1; i < 4; i++)
         {
             var y = padT + plotH * i / 4.0;
-            sb.AppendLine($"  <line x1=\"{padL}\" y1=\"{y.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)}\" x2=\"{padL + plotW}\" y2=\"{y.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)}\" stroke=\"#eaeef2\" stroke-width=\"1\"/>");
+            sb.AppendLine($"  <line x1=\"{padL}\" y1=\"{y.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)}\" x2=\"{padL + plotW}\" y2=\"{y.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)}\" stroke=\"var(--grid)\" stroke-width=\"1\"/>");
         }
         // Axes
         sb.AppendLine($"  <line x1=\"{padL}\" y1=\"{padT}\" x2=\"{padL}\" y2=\"{padT + plotH}\" stroke=\"#d0d7de\"/>");
@@ -589,7 +614,7 @@ footer a { color: var(--muted); }
         for (var i = 1; i < 4; i++)
         {
             var y = padT + plotH * i / 4.0;
-            sb.AppendLine($"  <line x1=\"{padL}\" y1=\"{y.ToString("F1", CultureInfo.InvariantCulture)}\" x2=\"{padL + plotW}\" y2=\"{y.ToString("F1", CultureInfo.InvariantCulture)}\" stroke=\"#eaeef2\" stroke-width=\"1\"/>");
+            sb.AppendLine($"  <line x1=\"{padL}\" y1=\"{y.ToString("F1", CultureInfo.InvariantCulture)}\" x2=\"{padL + plotW}\" y2=\"{y.ToString("F1", CultureInfo.InvariantCulture)}\" stroke=\"var(--grid)\" stroke-width=\"1\"/>");
         }
         // Axes
         sb.AppendLine($"  <line x1=\"{padL}\" y1=\"{padT}\" x2=\"{padL}\" y2=\"{padT + plotH}\" stroke=\"#d0d7de\" stroke-width=\"1\"/>");
@@ -652,13 +677,15 @@ footer a { color: var(--muted); }
 
     static string Hostname(string runId)
     {
-        // runId format: "<ISO timestamp>Z-<host>-[sustained-]<8charId>".
-        // ISO timestamp itself contains '-', so split on the first 'Z-'.
+        // runId format: "<ISO timestamp>Z-<host>-<8charId>". The ISO timestamp contains
+        // '-', so anchor on the trailing 'Z'. The host itself may contain '-' (Windows
+        // names allow it), so peel off the trailing "-<id>" segment rather than splitting
+        // on the FIRST '-' (which truncated hyphenated hostnames).
         var zIdx = runId.IndexOf('Z');
         if (zIdx < 0) return "host";
-        var afterZ = runId.Substring(zIdx + 1).TrimStart('-');
-        var firstDash = afterZ.IndexOf('-');
-        return firstDash < 0 ? afterZ : afterZ.Substring(0, firstDash);
+        var afterZ = runId[(zIdx + 1)..].Trim('-');   // "<host>-<id>"
+        var lastDash = afterZ.LastIndexOf('-');
+        return lastDash <= 0 ? afterZ : afterZ[..lastDash];
     }
 
     static string Anonymize(string runId)

@@ -1,6 +1,6 @@
 # 2026-06-03 — Modernization, UX, and polish
 
-Status: **Phase 1 shipped**; **Phase 2.1–2.4 + 3.3 shipped** (all on `claude/zealous-carson-MWtGe`); **2.5, 2.6, 3.1, 3.2, 3.4 remain.** Authored 2026-06-03 against v0.6.0.
+Status: **Phases 1, 2 (all), and 3 shipped except 3.4-Phase-C** (all on `claude/zealous-carson-MWtGe`); **only 3.4 per-adapter GPU remains — deliberately deferred to a Windows machine.** Authored 2026-06-03 against v0.6.0.
 
 > Items below carry `✅ SHIPPED` once landed. Everything shipped so far is verifiable by
 > inspection (config / pure logic / cross-platform tests); none of it was built or run in the
@@ -132,7 +132,7 @@ stack trace on bad input.
 **Verification:** `lapassay run --cpu-n abc` → friendly message, exit 2 (not a stack trace);
 `--duration 1.5` parses on a comma-decimal locale.
 
-### 2.5 Centralize the instrument palette (GUI charts)
+### 2.5 Centralize the instrument palette (GUI charts) ✅ SHIPPED
 
 `#16110D / #998B78 / #F97316 / #A3E635 / #F87171 / #D69D45` are re-parsed in
 `TelemetryChart.cs`, `SustainedChart.cs`, `HistoryTrendChart.cs` (and defined as tokens in
@@ -146,43 +146,54 @@ theme is an intentional, separate concern (see Phase 3.1).
 
 **Verification:** GUI charts render identically (pixel-diff a live run before/after on Windows).
 
-### 2.6 `--repeat N` + median/IQR (credibility)
+### 2.6 `--repeat N` + median/IQR (credibility) ✅ SHIPPED
 
-The single biggest *trust* feature. Already fully specced — **execute Phase A of**
-`docs/plans/2026-05-19-truth-seeking-improvements.md` (schema `1.0 → 1.1`, additive `repeats`
-fields, `Runner.RunRepeated`, CLI `--repeat`/`--repeat-cooldown-sec`, HTML IQR rendering). Do
-**after** 2.1 so CI guards the schema change. Follow that doc's verification steps verbatim.
+The single biggest *trust* feature. Shipped: `Repeats` model field (additive), the pure
+`RepeatAggregation.Merge` (median + linear-interpolated p25/p75, re-scored from medians; unit
+tested), `Runner.RunRepeated` (thin loop with cooldown), CLI `--repeat`/`--repeat-cooldown-sec`,
+console IQR column, HTML IQR cells + "Median of N runs" hero badge. Schema bumped to `1.2`.
+GUI intentionally left single-run (no repeat control) to keep that surface unchanged.
 
 ---
 
 ## Phase 3 — Polish & long-term
 
-### 3.1 Report theme — OPEN DECISION (needs user input)
+### 3.1 Report theme — ✅ SHIPPED (option b: `prefers-color-scheme`)
 
-The report is generic GitHub-blue light; the app is premium dark amber. Options:
-- **(a)** Align report to the instrument aesthetic (dark, amber, mono headings).
-- **(b)** Add `prefers-color-scheme` so it adapts (keeps light default for print/share).
-- **(c)** Leave light, just refine spacing/type (current Phase-1 stance).
+Chose **(b)**: light stays the default (best for print/share); a `@media (prefers-color-scheme:
+dark)` block flips the variable-driven "paper" (page/cards/text/borders/grid) to the app's proven
+instrument tokens, plus `<meta name="color-scheme" content="light dark">`. Light mode renders
+byte-identically (literal hexes replaced by vars of the same value). The colored hero cards and
+saturated data-series colors are unchanged; the SVG gridline (the one near-white element) is
+var-driven so it doesn't glow on dark. **Manual check on a dark-mode device still wanted** — the
+SVG axis text/lines (mid-gray) were left literal and should read fine but weren't previewed.
 
-Recommend **(b)**. Pure CSS in `HtmlReport.Css` + a `<meta name="color-scheme">`. Decide before
-implementing; don't guess. Test both schemes at phone + desktop width.
+### 3.2 Stop string-parsing `runId` for the hostname ✅ SHIPPED (robust-parse variant)
 
-### 3.2 Stop string-parsing `runId` for the hostname
-
-`HtmlReport.Hostname()` / `Anonymize()` split `runId` on the first `Z` and first/last `-`; a
-hostname containing `-` mislabels the report. **Change:** add explicit `Hostname` +
-`CapturedAt` already exist on `EnvironmentInfo` — pass hostname through structurally (it's also
-embeddable in the run record) instead of re-deriving it. Additive; no breaking schema change.
+`HtmlReport.Hostname()` split `runId` on the *first* `-` after `Z`, truncating hyphenated
+hostnames. Fixed to peel the trailing `-<id>` (last `-`) instead, so `my-laptop` survives;
+covered by a test. (`Anonymize()` already used the last `-`, so it was fine.) Chose the
+robust-parse over adding a schema field — same fix, zero schema churn.
 
 ### 3.3 Document the score-bar constants ✅ SHIPPED
 
 `HtmlReport` benchmark bar uses `b.Score / 15.0` ("1500 = full bar") and the diff bar clamps at
 ±50% — undocumented magic. Hoist to named `const` with a one-line rationale each.
 
-### 3.4 Per-adapter GPU + FP16-ALU relabel
+### 3.4 Per-adapter GPU + FP16-ALU relabel — Phase D ✅ SHIPPED, Phase C deferred
 
-Phases C & D of `docs/plans/2026-05-19-truth-seeking-improvements.md`. Largest correctness/honesty
-win for multi-GPU laptops. Out of scope until 2.6 lands.
+**Phase D (FP16-ALU relabel) ✅ SHIPPED:** kernel id `gpu.matmul.fp16.N` → `gpu.matmul.fp16alu.N`
+(Runner), baseline dropped `2000 → 1000` and the misleading "2× FP32" comment replaced (Scoring),
+catalog/README labels now say "FP16 ALU / min16float — not tensor cores", kernel XML doc clarifies
+it's ALU not tensor cores, and `Compare.Canonical` maps the legacy id so old↔new diffs still pair
+(unit tested). Schema `1.2`. **The 1000 baseline is provisional** — recalibrate on the reference
+Ryzen AI 9 HX 370 + RTX 4070 laptop.
+
+**Phase C (per-adapter GPU runs) — DEFERRED, do on Windows.** This requires real D3D12 work
+(`D3D12Context.EnumerateAll`, per-adapter device contexts, per-adapter telemetry isolation) that
+**cannot be verified by inspection** and would risk breaking the GPU device-creation path if done
+blind. It needs a Windows machine with ≥2 adapters to develop and validate. Follow Phase C of the
+2026-05-19 plan. This is the one remaining plan item, held deliberately.
 
 ---
 

@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Runtime.Versioning;
+using System.Threading;
 using Lapassay.Core.Harness;
 using Lapassay.Core.Kernels.Cpu;
 using Lapassay.Core.Kernels.Gpu;
@@ -20,6 +21,31 @@ public static class Runner
     // benches need more warmup on laptops with aggressive turbo/DVFS.
     const int CpuWarmup = 8;
     const int CpuMeasure = 15;
+
+    /// <summary>
+    /// Runs the suite <paramref name="repeat"/> times (with a cooldown between passes so
+    /// thermal carry-over doesn't shrink the measured spread) and aggregates per-benchmark
+    /// values into median + IQR via <see cref="RepeatAggregation"/>. <paramref name="repeat"/>
+    /// &lt;= 1 is equivalent to a single <see cref="Run"/>.
+    /// </summary>
+    public static BenchmarkRun RunRepeated(RunOptions options, int repeat, int cooldownSec, Action<string>? log = null)
+    {
+        log ??= _ => { };
+        if (repeat <= 1) return Run(options, log);
+
+        var runs = new List<BenchmarkRun>(repeat);
+        for (var i = 0; i < repeat; i++)
+        {
+            log($"=== Repeat {i + 1} / {repeat} ===");
+            runs.Add(Run(options, log));
+            if (i < repeat - 1 && cooldownSec > 0)
+            {
+                log($"Cooldown {cooldownSec}s before next repeat…");
+                Thread.Sleep(cooldownSec * 1000);
+            }
+        }
+        return RepeatAggregation.Merge(runs);
+    }
 
     public static BenchmarkRun Run(RunOptions options, Action<string>? log = null)
     {
@@ -75,7 +101,7 @@ public static class Runner
         if (options.Gpu)
         {
             Begin($"gpu.matmul.fp32.{options.GpuN}"); results.Add(RunGpuFp32Matmul(options.GpuN, log));
-            Begin($"gpu.matmul.fp16.{options.GpuN}"); results.Add(RunGpuFp16Matmul(options.GpuN, log));
+            Begin($"gpu.matmul.fp16alu.{options.GpuN}"); results.Add(RunGpuFp16Matmul(options.GpuN, log));
             Begin("gpu.ai.squeezenet");               results.Add(RunOnnxSqueezenet(log));
         }
 
@@ -98,7 +124,9 @@ public static class Runner
 
         var runId = $"{DateTimeOffset.UtcNow:yyyy-MM-ddTHH:mm:ssZ}-{Environment.MachineName.ToLowerInvariant()}-{Guid.NewGuid().ToString()[..8]}";
         return new BenchmarkRun(
-            SchemaVersion: "1.0",
+            // 1.1: additive `repeats` on results (--repeat).  1.2: gpu.matmul.fp16 → fp16alu id.
+            // Both are backward-compatible for readers (System.Text.Json ignores unknown fields).
+            SchemaVersion: "1.2",
             Tool: "lapassay",
             ToolVersion: "0.6.0",
             RunId: runId,
@@ -284,7 +312,7 @@ public static class Runner
 
     static BenchmarkResult RunGpuFp16Matmul(int n, Action<string> log) =>
         RunGpuMatmulBench(
-            $"gpu.matmul.fp16.{n}", n,
+            $"gpu.matmul.fp16alu.{n}", n,
             ctx => new Fp16MatmulKernel(ctx, n, measurementIterations: 10),
             k => ((Fp16MatmulKernel)k).Measure(warmupIterations: 5),
             (k, s) => ((Fp16MatmulKernel)k).Gflops(s),

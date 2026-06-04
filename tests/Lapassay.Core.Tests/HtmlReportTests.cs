@@ -13,11 +13,11 @@ namespace Lapassay.Core.Tests;
 /// </summary>
 public class HtmlReportTests
 {
-    static BenchmarkRun SampleRun(string cpuModel = "Test CPU") => new(
+    static BenchmarkRun SampleRun(string cpuModel = "Test CPU", string runId = "2026-04-23T14:32:00Z-testhost-abcdef12") => new(
         SchemaVersion: "1.0",
         Tool: "lapassay",
         ToolVersion: "0.6.0",
-        RunId: "2026-04-23T14:32:00Z-testhost-abcdef12",
+        RunId: runId,
         Environment: new EnvironmentInfo(
             Cpu: new CpuInfo(cpuModel, 8, 16, 2400, 4800, 24),
             Gpu: new List<GpuInfo> { new("Test GPU", 8192, "1.2.3") },
@@ -83,5 +83,44 @@ public class HtmlReportTests
 
         Assert.Contains("table-wrap", html);
         Assert.Contains("@media (max-width: 560px)", html);
+    }
+
+    [Fact]
+    public void OffersAnOptInDarkScheme()
+    {
+        var html = HtmlReport.Generate(SampleRun());
+
+        Assert.Contains("<meta name=\"color-scheme\" content=\"light dark\">", html);
+        Assert.Contains("@media (prefers-color-scheme: dark)", html);
+    }
+
+    [Fact]
+    public void TitleKeepsHyphenatedHostnamesIntact()
+    {
+        // Windows hostnames can contain '-'. The title is derived from the runId; the
+        // hostname must not be truncated at its first dash.
+        var html = HtmlReport.Generate(SampleRun(runId: "2026-04-23T14:32:00Z-my-laptop-abcdef12"));
+
+        Assert.Contains("my-laptop</title>", html);
+    }
+
+    [Fact]
+    public void ShowsMedianAndIqrWhenRepeatsArePresent()
+    {
+        var run = SampleRun() with
+        {
+            Benchmarks = new List<BenchmarkResult>
+            {
+                new("cpu.aes128cbc", "cpu", "mb/s", 3120.0, 1040,
+                    new BenchmarkStats(15, 3120.0, 12.0, 3100.0, 3140.0), 1.2,
+                    new TelemetrySummary(null, null, null, null, null, null, null, null),
+                    new Repeats(new[] { 3000.0, 3120.0, 3200.0 }, 3120.0, 3050.0, 3180.0)),
+            },
+        };
+
+        var html = HtmlReport.Generate(run);
+
+        Assert.Contains("Median of 3 runs", html);
+        Assert.Contains("3050.0&ndash;3180.0", html);
     }
 }

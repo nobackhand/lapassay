@@ -12,6 +12,13 @@ namespace Lapassay.Core.Kernels.Gpu;
 /// On hardware with FP16 ALU packed-math support (RDNA2+, Intel Xe, NVIDIA Turing+),
 /// this delivers roughly 2× the FP32 throughput.
 ///
+/// IMPORTANT: this measures FP16 *ALU* throughput via `min16float` compiled with
+/// <c>cs_5_1</c> — it does NOT use tensor cores / matrix accelerators. On architectures
+/// where FP32 ALU lanes match or exceed packed FP16 (e.g. NVIDIA Ada), the result can be
+/// ≈ or below FP32; that is expected, not a regression. Exposed as the benchmark id
+/// <c>gpu.matmul.fp16alu.N</c> to keep that honest. A true tensor-core kernel would require
+/// DXC + <c>cs_6_8</c> with WaveMatrix / Cooperative Vectors — a separate effort.
+///
 /// Output stays FP32 so each output element is 4-byte aligned — avoids inter-thread
 /// race conditions when writing adjacent FP16 outputs into shared 32-bit words.
 /// </summary>

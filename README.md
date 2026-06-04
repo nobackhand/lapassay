@@ -59,7 +59,7 @@ Without these, the tool still runs; it just warns and produces noisier numbers.
 | `cpu.latency.pointerchase` | Single-threaded 64-byte-stride shuffled linked-list chase over 32 MB | ns/access |
 | `cpu.scaling.efficiency` | Sweeps SGEMM at 1, 2, 4, ..., physical_cores threads. Reports the GFLOPS curve and a single "efficiency at full cores" % | % |
 | `gpu.matmul.fp32.2048` | 2048³ D3D12 compute-shader matmul with timestamp-query timing | GFLOPS |
-| `gpu.matmul.fp16.2048` | Same matmul with `min16float` — shows FP16 vs FP32 speedup (if the HW supports packed FP16) | GFLOPS |
+| `gpu.matmul.fp16alu.2048` | Same matmul with `min16float` — FP16 **ALU** throughput (not tensor cores); on many GPUs this is ≈ or below FP32 | GFLOPS |
 | `gpu.ai.squeezenet` | SqueezeNet 1.0 inference via ONNX Runtime + DirectML (runs on any Windows GPU/NPU) | inf/s |
 
 Each run records telemetry (CPU/GPU watts + temps + CPU clock) every 100 ms, summarized into the JSON result.

@@ -16,14 +16,14 @@ namespace Lapassay.Gui;
 /// </summary>
 public sealed class SustainedChart : Control
 {
-    static readonly IBrush BgBrush   = new SolidColorBrush(Color.Parse("#16110D"));
-    static readonly IBrush DimText   = new SolidColorBrush(Color.Parse("#998B78"));
-    static readonly IBrush FaintText = new SolidColorBrush(Color.Parse("#5A4F43"));
-    static readonly Pen CpuPen   = new(new SolidColorBrush(Color.Parse("#F97316")), 2);
-    static readonly Pen GpuPen   = new(new SolidColorBrush(Color.Parse("#A3E635")), 2);
-    static readonly Pen CpuTPen  = new(new SolidColorBrush(Color.Parse("#F87171")), 1.5) { DashStyle = DashStyle.Dash };
-    static readonly Pen GpuTPen  = new(new SolidColorBrush(Color.Parse("#D69D45")), 1.5) { DashStyle = DashStyle.Dash };
-    static readonly Pen GridPen  = new(new SolidColorBrush(Color.FromArgb(40, 240, 230, 210)), 1);
+    static readonly IBrush BgBrush   = InstrumentPalette.BgBrush;
+    static readonly IBrush DimText   = InstrumentPalette.TextDimBrush;
+    static readonly IBrush FaintText = InstrumentPalette.TextFaintBrush;
+    static readonly Pen CpuPen   = new(new SolidColorBrush(InstrumentPalette.Accent), 2);
+    static readonly Pen GpuPen   = new(new SolidColorBrush(InstrumentPalette.Ok), 2);
+    static readonly Pen CpuTPen  = new(new SolidColorBrush(InstrumentPalette.Bad), 1.5) { DashStyle = DashStyle.Dash };
+    static readonly Pen GpuTPen  = new(new SolidColorBrush(InstrumentPalette.Warn), 1.5) { DashStyle = DashStyle.Dash };
+    static readonly Pen GridPen  = InstrumentPalette.GridPen;
 
     public static readonly StyledProperty<IEnumerable<SustainedSample>?> SamplesProperty =
         AvaloniaProperty.Register<SustainedChart, IEnumerable<SustainedSample>?>(nameof(Samples));

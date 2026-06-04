@@ -28,7 +28,7 @@ public static class BenchmarkCatalog
 
         // GPU compute
         ["gpu.matmul.fp32.2048"]     = "2048² GPU matrix multiply (FP32, D3D12 compute)",
-        ["gpu.matmul.fp16.2048"]     = "2048² GPU matrix multiply (FP16 / packed half)",
+        ["gpu.matmul.fp16alu.2048"]  = "2048² GPU matrix multiply (FP16 ALU / min16float — not tensor cores)",
 
         // GPU AI
         ["gpu.ai.squeezenet"]        = "SqueezeNet image inference (ONNX + DirectML)",
