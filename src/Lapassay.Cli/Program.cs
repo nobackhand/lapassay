@@ -16,7 +16,7 @@ if (args.Length == 0 || args[0] is "--help" or "-h")
 
 if (args[0] is "--version")
 {
-    Console.WriteLine("lapassay 0.6.0");
+    Console.WriteLine($"lapassay {LapassayVersion.Value}");
     return 0;
 }
 
@@ -64,12 +64,22 @@ int RunSingle(string[] cmdArgs)
     }
     if (!cpu && !gpu) { cpu = true; gpu = true; }
 
+    // Range checks mirror the GUI's NumericUpDown bounds — out-of-range values previously
+    // crashed deep inside a kernel with a raw exception.
+    if (!CheckRange(cpuN, 64, 4096, "--cpu-n")) return 2;
+    if (!CheckRange(gpuN, 64, 8192, "--gpu-n")) return 2;
+    if (!CheckRange(repeat, 1, 20, "--repeat")) return 2;
+    if (!CheckRange(repeatCooldownSec, 0, 600, "--repeat-cooldown-sec")) return 2;
+
     PrintPreflight();
     outPath ??= JsonReport.DefaultPath();
 
     try
     {
-        var runOptions = new Runner.RunOptions(cpu, gpu, cpuN, gpuN);
+        using var cts = new CancellationTokenSource();
+        Console.CancelKeyPress += (_, e) => { e.Cancel = true; cts.Cancel(); };
+
+        var runOptions = new Runner.RunOptions(cpu, gpu, cpuN, gpuN, Cancel: cts.Token);
         var run = repeat > 1
             ? Runner.RunRepeated(runOptions, repeat, repeatCooldownSec, Console.WriteLine)
             : Runner.Run(runOptions, Console.WriteLine);
@@ -84,6 +94,11 @@ int RunSingle(string[] cmdArgs)
         }
         PrintSummary(run);
         return 0;
+    }
+    catch (OperationCanceledException)
+    {
+        Console.Error.WriteLine("Cancelled — no result written.");
+        return 130;
     }
     catch (Exception ex)
     {
@@ -111,6 +126,12 @@ int RunSustained(string[] cmdArgs)
                 Console.Error.WriteLine($"Unknown option: {cmdArgs[i]}");
                 return 2;
         }
+    }
+
+    if (duration <= 0 || duration > 86400)
+    {
+        Console.Error.WriteLine($"Error: --duration must be between 1 and 86400 seconds, got {duration}.");
+        return 2;
     }
 
     PrintPreflight();
@@ -281,6 +302,13 @@ static void PrintPreflight()
     }
 }
 
+static bool CheckRange(int value, int min, int max, string flag)
+{
+    if (value >= min && value <= max) return true;
+    Console.Error.WriteLine($"Error: {flag} must be between {min} and {max}, got {value}.");
+    return false;
+}
+
 static bool TryParseIntArg(string raw, string flag, out int value)
 {
     if (int.TryParse(raw, NumberStyles.Integer, CultureInfo.InvariantCulture, out value)) return true;
@@ -297,7 +325,7 @@ static bool TryParseDoubleArg(string raw, string flag, out double value)
 
 static void PrintUsage()
 {
-    Console.WriteLine("Lapassay 0.6.0 — Windows laptop CPU+GPU benchmark");
+    Console.WriteLine($"Lapassay {LapassayVersion.Value} — Windows laptop CPU+GPU benchmark");
     Console.WriteLine();
     Console.WriteLine("Usage:");
     Console.WriteLine("  lapassay run       [--cpu] [--gpu] [--out <path>] [--cpu-n N] [--gpu-n N] [--no-html]");

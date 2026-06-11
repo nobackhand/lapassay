@@ -25,8 +25,10 @@ public static class PowerStateDetector
                 // BatteryStatus codes (Win32_Battery): 1 = Discharging, 2 = AC, 3 = Fully charged on AC,
                 // 4 = Low, 5 = Critical, 6 = Charging, 7 = Charging+High, 8 = Charging+Low, 9 = Charging+Critical,
                 // 10 = Undefined, 11 = Partially charged.
+                // 4 and 5 occur WHILE DISCHARGING — treating only 1 as battery misreported
+                // low-battery machines as on AC, exactly when the distinction matters most.
                 var status = Convert.ToInt32(o["BatteryStatus"] ?? 0);
-                return status == 1 ? PowerState.OnBattery : PowerState.OnAc;
+                return status is 1 or 4 or 5 ? PowerState.OnBattery : PowerState.OnAc;
             }
         }
         catch { /* swallow */ }

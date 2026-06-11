@@ -17,6 +17,7 @@ public sealed class SgemmKernel
     readonly int _n;
     readonly float[] _a;
     readonly float[] _b;
+    readonly float[] _bt;
     readonly float[] _c;
 
     public SgemmKernel(int n = 1024, int seed = 42)
@@ -28,14 +29,19 @@ public sealed class SgemmKernel
         var rng = new Random(seed);
         for (var i = 0; i < _a.Length; i++) _a[i] = (float)(rng.NextDouble() * 2 - 1);
         for (var i = 0; i < _b.Length; i++) _b[i] = (float)(rng.NextDouble() * 2 - 1);
+        // B never changes, so its transpose is loop-invariant. Computing it here keeps the
+        // timed region pure matmul — previously Run() re-transposed per iteration, counting
+        // O(N²) setup in the GFLOPS time and allocating a 4 MB LOH array per iteration
+        // (so GC could fire inside measured iterations).
+        _bt = Transpose(_b, n);
     }
 
     /// <summary>One benchmark iteration — full matmul.</summary>
     public void Run()
     {
-        // Transpose B to B^T so inner loop walks contiguous floats in both A and B^T.
-        // A[i,k] * B[k,j] == A[i,k] * BT[j,k]  — inner dot-product loop vectorizes cleanly.
-        var bt = Transpose(_b, _n);
+        // A[i,k] * B[k,j] == A[i,k] * BT[j,k] — inner dot-product loop walks contiguous
+        // floats in both A and B^T and vectorizes cleanly.
+        var bt = _bt;
         var vectorSize = Vector<float>.Count;
         var n = _n;
 

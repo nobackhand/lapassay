@@ -27,9 +27,12 @@ public static class EnvironmentCapture
             var name = (o["Name"] as string ?? "unknown").Trim();
             var physical = Convert.ToInt32(o["NumberOfCores"] ?? 0);
             var logical = Convert.ToInt32(o["NumberOfLogicalProcessors"] ?? 0);
-            var maxMhz = Convert.ToInt32(o["MaxClockSpeed"] ?? 0);
+            // WMI's MaxClockSpeed is the RATED (base) clock, not max turbo — Windows has no
+            // reliable turbo-clock query. Store it where it belongs; turbo stays 0 = unknown.
+            // (It was previously stored in MaxTurboMhz, which mislabeled every report.)
+            var baseMhz = Convert.ToInt32(o["MaxClockSpeed"] ?? 0);
             var l3Kb = Convert.ToInt32(o["L3CacheSize"] ?? 0);
-            return new CpuInfo(name, physical, logical, 0, maxMhz, l3Kb / 1024);
+            return new CpuInfo(name, physical, logical, baseMhz, 0, l3Kb / 1024);
         }
         return new CpuInfo("unknown", Environment.ProcessorCount, Environment.ProcessorCount, 0, 0, 0);
     }
@@ -37,6 +40,10 @@ public static class EnvironmentCapture
     static List<GpuInfo> CaptureGpu()
     {
         var gpus = new List<GpuInfo>();
+        // WMI's AdapterRAM is a 32-bit field — it caps at 4 GB, so every modern dGPU
+        // (8 GB RTX 4070 etc.) was reported as ~4095 MB. DXGI reports the real value;
+        // prefer it, keep the WMI number only as a fallback.
+        var dxgiVram = DxgiVramByAdapterName();
         using var searcher = new ManagementObjectSearcher(
             "SELECT Name, AdapterRAM, DriverVersion FROM Win32_VideoController");
         foreach (var o in searcher.Get())
@@ -45,10 +52,38 @@ public static class EnvironmentCapture
             long ramBytes;
             try { ramBytes = Convert.ToInt64(o["AdapterRAM"] ?? 0); }
             catch { ramBytes = 0; }
+            if (dxgiVram.TryGetValue(name, out var dxgiBytes) && dxgiBytes > 0)
+                ramBytes = dxgiBytes;
             var driver = (o["DriverVersion"] as string ?? "unknown").Trim();
             gpus.Add(new GpuInfo(name, (int)(ramBytes / (1024 * 1024)), driver));
         }
         return gpus;
+    }
+
+    static Dictionary<string, long> DxgiVramByAdapterName()
+    {
+        var map = new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase);
+        try
+        {
+            Vortice.DXGI.DXGI.CreateDXGIFactory1(out Vortice.DXGI.IDXGIFactory1? factory);
+            if (factory is null) return map;
+            try
+            {
+                for (uint i = 0; ; i++)
+                {
+                    if (factory.EnumAdapters1(i, out Vortice.DXGI.IDXGIAdapter1? adapter).Failure || adapter is null)
+                        break;
+                    var desc = adapter.Description1;
+                    adapter.Dispose();
+                    var name = desc.Description.Trim();
+                    var bytes = (long)desc.DedicatedVideoMemory;
+                    if (!map.ContainsKey(name) || bytes > map[name]) map[name] = bytes;
+                }
+            }
+            finally { factory.Dispose(); }
+        }
+        catch { /* DXGI unavailable (e.g. remote session edge cases) — WMI value stands */ }
+        return map;
     }
 
     static RamInfo CaptureRam()
@@ -131,9 +166,10 @@ public static class EnvironmentCapture
             using var searcher = new ManagementObjectSearcher("SELECT BatteryStatus FROM Win32_Battery");
             foreach (var o in searcher.Get())
             {
-                // BatteryStatus: 1 = Discharging, 2 = AC
+                // BatteryStatus: 1 = Discharging, 2 = AC. Statuses 4 (Low) and 5 (Critical)
+                // also occur while discharging — count them as on-battery.
                 var status = Convert.ToInt32(o["BatteryStatus"] ?? 0);
-                return status == 1;
+                return status is 1 or 4 or 5;
             }
         }
         catch { }

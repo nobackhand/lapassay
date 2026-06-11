@@ -24,6 +24,7 @@ public partial class MainWindow : Window
     MainWindowViewModel Vm => (MainWindowViewModel)DataContext!;
 
     DispatcherTimer? _powerPoll;
+    CancellationTokenSource? _runCts;
 
     public MainWindow()
     {
@@ -67,13 +68,15 @@ public partial class MainWindow : Window
         Vm.LiveSamples.Clear();
         Vm.ClearProgress();
 
+        _runCts = new CancellationTokenSource();
         var options = new Runner.RunOptions(
             Cpu: Vm.RunCpu,
             Gpu: Vm.RunGpu,
             CpuN: Vm.CpuN,
             GpuN: Vm.GpuN,
             OnTelemetrySample: sample => Dispatcher.UIThread.Post(() => Vm.LiveSamples.Add(sample)),
-            OnKernelStart: p => Dispatcher.UIThread.Post(() => Vm.SetProgress(p)));
+            OnKernelStart: p => Dispatcher.UIThread.Post(() => Vm.SetProgress(p)),
+            Cancel: _runCts.Token);
         var outPath = JsonReport.DefaultPath();
 
         try
@@ -92,16 +95,27 @@ public partial class MainWindow : Window
             Vm.AppendLog($"\n✔ Wrote {outPath}");
             Vm.AppendLog($"✔ Wrote {htmlPath}");
         }
+        catch (OperationCanceledException)
+        {
+            Vm.AppendLog("\nRun stopped — no result written.");
+        }
         catch (Exception ex)
         {
             Vm.AppendLog($"\n✖ ERROR: {ex.Message}");
         }
         finally
         {
+            _runCts.Dispose();
+            _runCts = null;
             Vm.IsRunning = false;
             Vm.ClearProgress();
             ScrollLogToBottom();
         }
+    }
+
+    void OnStopRunClicked(object? sender, RoutedEventArgs e)
+    {
+        _runCts?.Cancel();
     }
 
     void OnOpenFolderClicked(object? sender, RoutedEventArgs e)

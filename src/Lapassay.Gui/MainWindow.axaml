@@ -29,7 +29,7 @@
                                LetterSpacing="6"
                                Foreground="{DynamicResource TextBrush}"/>
                 </StackPanel>
-                <TextBlock Text="CPU + GPU INSTRUMENTATION · v0.6.0"
+                <TextBlock Text="{Binding VersionText}"
                            FontFamily="{DynamicResource MonoFontMedium}" FontSize="9"
                            LetterSpacing="3" Margin="24,0,0,0"
                            Foreground="{DynamicResource TextDimBrush}"/>
@@ -171,6 +171,8 @@
                             <Border Width="1" Background="{DynamicResource BorderSoftBrush}" Height="22" Margin="6,0"/>
                             <Button Classes="primary" Content="{Binding RunButtonLabel}"
                                     Click="OnRunClicked" IsEnabled="{Binding !IsRunning}"/>
+                            <Button Content="STOP" Click="OnStopRunClicked" IsEnabled="{Binding IsRunning}"
+                                    ToolTip.Tip="Stop after the current kernel finishes — no partial result is written"/>
                             <Button Content="VIEW REPORT" Click="OnViewReportClicked" IsEnabled="{Binding HasReport}"
                                     ToolTip.Tip="Open the auto-generated HTML report in your browser"/>
                             <Button Content="EXPORT (REDACTED)" Click="OnViewShareableReportClicked" IsEnabled="{Binding HasReport}"

@@ -57,6 +57,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         }
     }
     public string RunButtonLabel => IsRunning ? "RUNNING…" : "RUN";
+    public string VersionText => $"CPU + GPU INSTRUMENTATION · v{LapassayVersion.Value}";
     public string LogContent { get => _logContent; set => Set(ref _logContent, value); }
     public string LastOutputPath { get => _lastOutputPath; set => Set(ref _lastOutputPath, value); }
     public string LastHtmlPath { get => _lastHtmlPath; set => Set(ref _lastHtmlPath, value); }

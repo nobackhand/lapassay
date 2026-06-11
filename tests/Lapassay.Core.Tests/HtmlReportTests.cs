@@ -105,6 +105,45 @@ public class HtmlReportTests
     }
 
     [Fact]
+    public void FooterLinksBackToTheProject()
+    {
+        var html = HtmlReport.Generate(SampleRun());
+
+        Assert.Contains("github.com/nobackhand/lapassay", html);
+    }
+
+    [Fact]
+    public void BenchmarkRowsIncludePlainEnglishDescriptions()
+    {
+        var html = HtmlReport.Generate(SampleRun());
+
+        // The shared catalog description, not just the raw id.
+        Assert.Contains("AES-128 encryption throughput", html);
+    }
+
+    [Fact]
+    public void GpuRowsDiscloseTheAdapterAndAnonymizeRedactsIt()
+    {
+        var run = SampleRun() with
+        {
+            Benchmarks = new List<BenchmarkResult>
+            {
+                new("gpu.matmul.fp32.2048", "gpu", "gflops", 5000.0, 5000,
+                    new BenchmarkStats(10, 5000.0, 0, 5000.0, 5000.0), 1.0,
+                    new TelemetrySummary(null, null, null, null, null, null, null, null),
+                    Adapter: "NVIDIA GeForce RTX 4070 Laptop GPU"),
+            },
+        };
+
+        var html = HtmlReport.Generate(run);
+        Assert.Contains("on NVIDIA GeForce RTX 4070 Laptop GPU", html);
+
+        var anon = HtmlReport.Generate(run, anonymize: true);
+        Assert.DoesNotContain("RTX 4070", anon);
+        Assert.Contains("on NVIDIA GPU", anon);
+    }
+
+    [Fact]
     public void ShowsMedianAndIqrWhenRepeatsArePresent()
     {
         var run = SampleRun() with

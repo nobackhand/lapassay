@@ -20,7 +20,7 @@ public static class HtmlReport
         var sections = new List<string>
         {
             EnvironmentSection(run.Environment, anonymize),
-            BenchmarksSection(run.Benchmarks),
+            BenchmarksSection(run.Benchmarks, anonymize),
         };
         if (run.ScalingCurve is { Count: > 0 })
             sections.Add(ScalingCurveSection(run.ScalingCurve));
@@ -51,7 +51,7 @@ public static class HtmlReport
             {
                 DiffTableSection(cmp),
             },
-            footerHtml: $"<footer>Lapassay diff &middot; {Esc(cmp.LabelA)} vs {Esc(cmp.LabelB)}{(anonymize ? " &middot; anonymized" : "")}</footer>");
+            footerHtml: $"<footer>Lapassay diff &middot; {Esc(cmp.LabelA)} vs {Esc(cmp.LabelB)}{(anonymize ? " &middot; anonymized" : "")}<br>Free, offline, open-source laptop benchmark &middot; {RepoLink}</footer>");
 
     public static void WriteToFile(BenchmarkRun run, string path, bool anonymize = false)
     {
@@ -143,7 +143,7 @@ section h2 { margin: 0 0 12px; font-size: 13px; font-weight: 600; letter-spacing
 /* Wide tables stay readable on phones: scroll within the card instead of forcing
    the whole page sideways. */
 .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-table.bench { width: 100%; border-collapse: collapse; font-size: 14px; min-width: 460px; }
+table.bench { width: 100%; border-collapse: collapse; font-size: 14px; min-width: 560px; }
 table.bench th { text-align: left; padding: 8px 8px 10px; font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; border-bottom: 1px solid var(--border); }
 table.bench th.num { text-align: right; }
 table.bench td { padding: 10px 8px; border-bottom: 1px solid var(--soft); }
@@ -383,7 +383,10 @@ footer a { color: var(--muted); }
         sb.AppendLine("<section>");
         sb.AppendLine("  <h2>System</h2>");
         sb.AppendLine("  <dl class=\"env-grid\">");
-        sb.AppendLine($"    <dt>CPU</dt><dd>{Esc(cpuModel)} &middot; base {env.Cpu.MaxTurboMhz} MHz &middot; L3 {env.Cpu.L3CacheMb} MB</dd>");
+        // Old runs (pre-clock-fix) stored the WMI rated clock in MaxTurboMhz; fall back so
+        // their reports still show a number.
+        var baseMhz = env.Cpu.BaseClockMhz > 0 ? env.Cpu.BaseClockMhz : env.Cpu.MaxTurboMhz;
+        sb.AppendLine($"    <dt>CPU</dt><dd>{Esc(cpuModel)} &middot; base {baseMhz} MHz &middot; L3 {env.Cpu.L3CacheMb} MB</dd>");
         foreach (var g in gpuLines)
             sb.AppendLine($"    <dt>GPU</dt><dd>{Esc(g)}</dd>");
         sb.AppendLine($"    <dt>RAM</dt><dd>{Esc(ramLine)}</dd>");
@@ -407,7 +410,7 @@ footer a { color: var(--muted); }
         return "GPU";
     }
 
-    static string BenchmarksSection(IEnumerable<BenchmarkResult> benches)
+    static string BenchmarksSection(IEnumerable<BenchmarkResult> benches, bool anonymize)
     {
         var sb = new StringBuilder();
         sb.AppendLine("<section>");
@@ -416,6 +419,7 @@ footer a { color: var(--muted); }
         sb.AppendLine("  <table class=\"bench\">");
         sb.AppendLine("    <thead><tr>");
         sb.AppendLine("      <th>ID</th>");
+        sb.AppendLine("      <th>What it measures</th>");
         sb.AppendLine("      <th class=\"num\">Value</th>");
         sb.AppendLine("      <th>Metric</th>");
         sb.AppendLine("      <th class=\"num\">Stdev</th>");
@@ -429,8 +433,17 @@ footer a { color: var(--muted); }
             var valueCell = b.Repeats is { } rep
                 ? $"{b.Value.ToString("F1", CultureInfo.InvariantCulture)} <span style=\"opacity:.5;font-size:11px\">[{rep.P25.ToString("F1", CultureInfo.InvariantCulture)}&ndash;{rep.P75.ToString("F1", CultureInfo.InvariantCulture)}]</span>"
                 : b.Value.ToString("F1", CultureInfo.InvariantCulture);
+            // GPU rows disclose which adapter ran the kernel (matmuls and ONNX/DirectML can
+            // land on different chips of a dual-GPU laptop); redacted in anonymized exports.
+            var descCell = Esc(BenchmarkCatalog.Describe(b.Id));
+            if (b.Adapter is { Length: > 0 } adapter)
+            {
+                var shownAdapter = anonymize ? GenericGpu(adapter) : adapter;
+                descCell += $" <span style=\"opacity:.55;font-size:11px\">&middot; on {Esc(shownAdapter)}</span>";
+            }
             sb.AppendLine("    <tr>");
             sb.AppendLine($"      <td class=\"id\">{Esc(b.Id)}</td>");
+            sb.AppendLine($"      <td>{descCell}</td>");
             sb.AppendLine($"      <td class=\"num\">{valueCell}</td>");
             sb.AppendLine($"      <td>{Esc(b.Metric)}</td>");
             sb.AppendLine($"      <td class=\"num\">{stdevPct.ToString("F1", CultureInfo.InvariantCulture)}%</td>");
@@ -669,10 +682,12 @@ footer a { color: var(--muted); }
 
     // -------------------- footer --------------------
 
+    const string RepoLink = "<a href=\"https://github.com/nobackhand/lapassay\">github.com/nobackhand/lapassay</a>";
+
     static string Footer(string runId, string toolVersion, bool anonymize)
     {
         var rid = anonymize ? Anonymize(runId) : runId;
-        return $"<footer>Lapassay {Esc(toolVersion)} &middot; run {Esc(rid)}{(anonymize ? " &middot; anonymized" : "")}</footer>";
+        return $"<footer>Lapassay {Esc(toolVersion)} &middot; run {Esc(rid)}{(anonymize ? " &middot; anonymized" : "")}<br>Free, offline, open-source laptop benchmark &middot; {RepoLink}</footer>";
     }
 
     static string Hostname(string runId)

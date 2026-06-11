@@ -63,7 +63,8 @@ public record BenchmarkResult(
     BenchmarkStats Stats,
     double DurationSec,
     TelemetrySummary Telemetry,
-    Repeats? Repeats = null);
+    Repeats? Repeats = null,
+    string? Adapter = null);
 
 public record CategoryScore(string Name, int Score, int BenchmarkCount);
 

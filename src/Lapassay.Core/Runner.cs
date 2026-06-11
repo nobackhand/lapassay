@@ -15,7 +15,8 @@ public static class Runner
 {
     public record RunOptions(bool Cpu, bool Gpu, int CpuN = 1024, int GpuN = 2048,
         Action<TelemetrySample>? OnTelemetrySample = null,
-        Action<KernelProgress>? OnKernelStart = null);
+        Action<KernelProgress>? OnKernelStart = null,
+        CancellationToken Cancel = default);
 
     // Warmup/measurement counts per kernel category. Tuned empirically; CPU
     // benches need more warmup on laptops with aggressive turbo/DVFS.
@@ -41,7 +42,8 @@ public static class Runner
             if (i < repeat - 1 && cooldownSec > 0)
             {
                 log($"Cooldown {cooldownSec}s before next repeat…");
-                Thread.Sleep(cooldownSec * 1000);
+                if (options.Cancel.WaitHandle.WaitOne(TimeSpan.FromSeconds(cooldownSec)))
+                    options.Cancel.ThrowIfCancellationRequested();
             }
         }
         return RepeatAggregation.Merge(runs);
@@ -73,43 +75,52 @@ public static class Runner
         var kernelIndex = 0;
         void Begin(string id)
         {
+            // Cancellation is honored between kernels — each kernel runs to completion,
+            // so a partial-kernel timing can never leak into a result.
+            options.Cancel.ThrowIfCancellationRequested();
             kernelIndex++;
             options.OnKernelStart?.Invoke(new KernelProgress(id, kernelIndex, totalKernels));
         }
 
-        if (options.Cpu)
+        try
         {
-            // Pin the orchestrating thread to CPU 0. Multi-threaded kernels use
-            // Parallel.For and can still span all cores; single-threaded kernels
-            // benefit from a stable home core.
-            ThreadPinning.PinCurrentThread(0);
+            if (options.Cpu)
+            {
+                // Pin the orchestrating thread to CPU 0. Multi-threaded kernels use
+                // Parallel.For and can still span all cores; single-threaded kernels
+                // benefit from a stable home core.
+                ThreadPinning.PinCurrentThread(0);
 
-            Begin($"cpu.sgemm.fp32.{options.CpuN}"); results.Add(RunCpuSgemm(options.CpuN, log));
-            Begin("cpu.aes128cbc");                  results.Add(RunAes(log));
-            Begin("cpu.sha256");                     results.Add(RunSha256(log));
-            Begin("cpu.zstd.level3");                results.Add(RunZstd(log));
-            Begin("cpu.fft.c2c.4096");               results.Add(RunFft(log));
-            Begin("cpu.mandelbrot.2048");            results.Add(RunMandelbrot(log));
-            Begin("cpu.stream.triad");               results.Add(RunStreamTriad(log));
-            Begin("cpu.latency.pointerchase");       results.Add(RunPointerChase(log));
-            Begin("cpu.scaling.efficiency");
-            var (scalingResult, curve) = RunCpuScaling(env.Cpu.PhysicalCores, log);
-            results.Add(scalingResult);
-            scalingCurve = curve;
+                Begin($"cpu.sgemm.fp32.{options.CpuN}"); results.Add(RunCpuSgemm(options.CpuN, log));
+                Begin("cpu.aes128cbc");                  results.Add(RunAes(log));
+                Begin("cpu.sha256");                     results.Add(RunSha256(log));
+                Begin("cpu.zstd.level3");                results.Add(RunZstd(log));
+                Begin("cpu.fft.c2c.4096");               results.Add(RunFft(log));
+                Begin("cpu.mandelbrot.2048");            results.Add(RunMandelbrot(log));
+                Begin("cpu.stream.triad");               results.Add(RunStreamTriad(log));
+                Begin("cpu.latency.pointerchase");       results.Add(RunPointerChase(log));
+                Begin("cpu.scaling.efficiency");
+                var (scalingResult, curve) = RunCpuScaling(env.Cpu.PhysicalCores, log);
+                results.Add(scalingResult);
+                scalingCurve = curve;
+            }
+
+            if (options.Gpu)
+            {
+                Begin($"gpu.matmul.fp32.{options.GpuN}"); results.Add(RunGpuFp32Matmul(options.GpuN, log));
+                Begin($"gpu.matmul.fp16alu.{options.GpuN}"); results.Add(RunGpuFp16Matmul(options.GpuN, log));
+                Begin("gpu.ai.squeezenet");               results.Add(RunOnnxSqueezenet(log));
+            }
         }
-
-        if (options.Gpu)
+        finally
         {
-            Begin($"gpu.matmul.fp32.{options.GpuN}"); results.Add(RunGpuFp32Matmul(options.GpuN, log));
-            Begin($"gpu.matmul.fp16alu.{options.GpuN}"); results.Add(RunGpuFp16Matmul(options.GpuN, log));
-            Begin("gpu.ai.squeezenet");               results.Add(RunOnnxSqueezenet(log));
-        }
-
-        // Stop the global telemetry stream now that all kernels are done.
-        if (globalMonitor is not null)
-        {
-            globalMonitor.Stop();
-            globalMonitor.Dispose();
+            // Stop the global telemetry stream even when a kernel throws or the run is
+            // cancelled — previously an exception leaked the monitor and its sampler task.
+            if (globalMonitor is not null)
+            {
+                globalMonitor.Stop();
+                globalMonitor.Dispose();
+            }
         }
 
         // Attach per-benchmark score.
@@ -124,11 +135,9 @@ public static class Runner
 
         var runId = $"{DateTimeOffset.UtcNow:yyyy-MM-ddTHH:mm:ssZ}-{Environment.MachineName.ToLowerInvariant()}-{Guid.NewGuid().ToString()[..8]}";
         return new BenchmarkRun(
-            // 1.1: additive `repeats` on results (--repeat).  1.2: gpu.matmul.fp16 → fp16alu id.
-            // Both are backward-compatible for readers (System.Text.Json ignores unknown fields).
-            SchemaVersion: "1.2",
+            SchemaVersion: LapassayVersion.SingleRunSchema,
             Tool: "lapassay",
-            ToolVersion: "0.6.0",
+            ToolVersion: LapassayVersion.Value,
             RunId: runId,
             Environment: env,
             Scores: scores,
@@ -299,7 +308,8 @@ public static class Runner
                 times.Length, Median: rate, Stdev: rate * (stdev / median),
                 Min: gflops(kernel, max), Max: gflops(kernel, min)),
             DurationSec: totalSw.Elapsed.TotalSeconds,
-            Telemetry: HardwareMonitor.Summarize(samples));
+            Telemetry: HardwareMonitor.Summarize(samples),
+            Adapter: ctx.AdapterName);
     }
 
     static BenchmarkResult RunGpuFp32Matmul(int n, Action<string> log) =>
@@ -321,11 +331,18 @@ public static class Runner
     static BenchmarkResult RunOnnxSqueezenet(Action<string> log)
     {
         log("Running gpu.ai.squeezenet...");
+        // Target the SAME adapter the matmul kernels used. DML's deviceId indexes DXGI's
+        // default enumeration order, not the HighPerformance order — left at 0 it often
+        // lands on the iGPU of a dual-GPU laptop while the matmuls ran on the dGPU.
+        var (dmlDeviceId, dmlAdapterName) = D3D12Context.FindDmlDeviceForHighPerformanceAdapter();
+        if (dmlAdapterName is not null)
+            log($"  DML adapter: {dmlAdapterName} (device {dmlDeviceId})");
+
         using var monitor = new HardwareMonitor();
         OnnxInferenceKernel? kernel;
         try
         {
-            kernel = new OnnxInferenceKernel();
+            kernel = new OnnxInferenceKernel(deviceId: dmlDeviceId);
         }
         catch (FileNotFoundException ex)
         {
@@ -358,7 +375,8 @@ public static class Runner
                     Min: 1.0 / timing.Stats.Max,
                     Max: 1.0 / timing.Stats.Min),
                 DurationSec: timing.TotalSec,
-                Telemetry: HardwareMonitor.Summarize(samples));
+                Telemetry: HardwareMonitor.Summarize(samples),
+                Adapter: dmlAdapterName);
         }
     }
 }

@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Lapassay.Core.Models;
+using Lapassay.Core.Reporting;
 
 namespace Lapassay.Core.History;
 
@@ -24,11 +25,6 @@ public record HistoryEntry(
 
 public static class HistoryScanner
 {
-    static readonly JsonSerializerOptions Opts = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-    };
-
     /// <summary>Scan `folder` for *.json files and return one HistoryEntry per parseable run.
     /// Diff files (filename starts with `diff-`) and sustained runs (have a `verdict` field) are
     /// skipped — only single-shot BenchmarkRun JSONs are returned.</summary>
@@ -49,8 +45,9 @@ public static class HistoryScanner
                 if (doc.RootElement.TryGetProperty("verdict", out _)) continue; // sustained — skip
                 if (!doc.RootElement.TryGetProperty("benchmarks", out _)) continue;
 
-                var run = JsonSerializer.Deserialize<BenchmarkRun>(json, Opts);
-                if (run is null) continue;
+                // Canonical options (camelCase + NaN/Infinity tolerance) — a private options
+                // instance here silently dropped runs containing non-finite values.
+                var run = JsonReport.Deserialize(json);
 
                 var anon = name.Contains("-anonymized", StringComparison.OrdinalIgnoreCase);
                 results.Add(new HistoryEntry(
@@ -80,10 +77,13 @@ public static class HistoryScanner
 
     static string HostFromRunId(string runId)
     {
+        // runId format: "<ISO timestamp>Z-<host>-<8charId>". The host may itself contain
+        // '-' (Windows allows it), so peel off the trailing "-<id>" segment instead of
+        // splitting at the first dash (which truncated "my-laptop" to "my").
         var zIdx = runId.IndexOf('Z');
         if (zIdx < 0) return "—";
-        var afterZ = runId.Substring(zIdx + 1).TrimStart('-');
-        var dash = afterZ.IndexOf('-');
-        return dash < 0 ? afterZ : afterZ.Substring(0, dash);
+        var afterZ = runId[(zIdx + 1)..].Trim('-');
+        var lastDash = afterZ.LastIndexOf('-');
+        return lastDash <= 0 ? afterZ : afterZ[..lastDash];
     }
 }
