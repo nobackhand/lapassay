@@ -105,6 +105,48 @@ public class HtmlReportTests
     }
 
     [Fact]
+    public void HeroShowsConfidenceWhenContextIsPresentAndOmitsItOtherwise()
+    {
+        var withContext = SampleRun() with
+        {
+            Context = new RunContext(IsAdmin: true, DeveloperMode: true, OnBattery: false, RepeatCount: 3),
+        };
+
+        var html = HtmlReport.Generate(withContext);
+        Assert.Contains("Confidence", html);
+        Assert.Contains("HIGH", html);
+        Assert.Contains("GPU clocks locked", html);
+
+        // Old files (no context) must not render a misleading judgment.
+        var withoutContext = HtmlReport.Generate(SampleRun());
+        Assert.DoesNotContain("Confidence", withoutContext);
+    }
+
+    [Fact]
+    public void SustainedSvgIsDecimatedForVeryLongRuns()
+    {
+        var samples = new List<SustainedSample>();
+        for (var t = 0.0; t < 3600; t += 0.3) // ~12k samples, like a 60-min run
+            samples.Add(new SustainedSample(t, 100.0, 100.0, 30.0, 20.0, 80.0, 70.0, 3000));
+
+        var run = new SustainedRun(
+            SchemaVersion: "1.0", Tool: "lapassay", ToolVersion: "0.6.0",
+            RunId: "2026-01-01T00:00:00Z-host-sustained-deadbeef",
+            Environment: SampleRun().Environment,
+            DurationSec: 3600, IterationCount: samples.Count,
+            Verdict: new ThrottleVerdict(false, 0, 0, 100, 100, 100, 100),
+            Samples: samples);
+
+        var html = HtmlReport.Generate(run);
+
+        // Four series × 12k points would be well over a megabyte of path data; the chart
+        // caps each series at ~1200 points so the file stays shareable.
+        Assert.True(html.Length < 400_000,
+            $"sustained report should be decimated, got {html.Length} chars");
+        Assert.Contains("<svg", html);
+    }
+
+    [Fact]
     public void FooterLinksBackToTheProject()
     {
         var html = HtmlReport.Generate(SampleRun());

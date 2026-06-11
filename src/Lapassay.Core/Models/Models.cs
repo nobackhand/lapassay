@@ -76,6 +76,14 @@ public record Scores(int Cpu, int Gpu, int Overall, List<CategoryScore> Categori
 
 public record ScalingPoint(int Threads, double Gflops, double EfficiencyPct);
 
+/// <summary>Conditions the run executed under — what a reader needs to judge how much to
+/// trust the score. Additive (schema 1.3); absent in older files.</summary>
+public record RunContext(
+    bool IsAdmin,
+    bool DeveloperMode,
+    bool OnBattery,
+    int RepeatCount = 1);
+
 public record BenchmarkRun(
     [property: JsonPropertyName("schemaVersion")] string SchemaVersion,
     string Tool,
@@ -84,7 +92,8 @@ public record BenchmarkRun(
     EnvironmentInfo Environment,
     Scores Scores,
     List<BenchmarkResult> Benchmarks,
-    List<ScalingPoint>? ScalingCurve = null);
+    List<ScalingPoint>? ScalingCurve = null,
+    RunContext? Context = null);
 
 // ---------- Sustained / throttle test ----------
 

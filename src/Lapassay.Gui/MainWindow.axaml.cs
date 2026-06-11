@@ -67,6 +67,7 @@ public partial class MainWindow : Window
         Vm.Results.Clear();
         Vm.LiveSamples.Clear();
         Vm.ClearProgress();
+        Vm.SetConfidence(null);
 
         _runCts = new CancellationTokenSource();
         var options = new Runner.RunOptions(
@@ -92,6 +93,7 @@ public partial class MainWindow : Window
             Vm.HasReport = true;
             Vm.ReplaceResults(run.Benchmarks);
             Vm.SetScores(run.Scores);
+            Vm.SetConfidence(run.Context);
             Vm.AppendLog($"\n✔ Wrote {outPath}");
             Vm.AppendLog($"✔ Wrote {htmlPath}");
         }

@@ -1,0 +1,68 @@
+name: Release
+
+# Tag-triggered release: push a tag like `v0.7.0` and this builds both binaries,
+# zips them with the ONNX model, and attaches everything (plus SHA256SUMS) to a
+# GitHub release. Keep the tag in sync with LapassayVersion.Value — the build
+# fails loudly if they disagree, so a release can never ship a lying --version.
+#
+# No PublishTrimmed: Avalonia, LibreHardwareMonitor, and WMI are reflection-heavy
+# and break under trimming. Single-file + self-contained only.
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Check tag matches LapassayVersion
+        shell: pwsh
+        run: |
+          $tag = '${{ github.ref_name }}'.TrimStart('v')
+          $src = Get-Content src/Lapassay.Core/LapassayVersion.cs -Raw
+          if ($src -notmatch [regex]::Escape("Value = `"$tag`"")) {
+            Write-Error "Tag v$tag does not match LapassayVersion.Value — update src/Lapassay.Core/LapassayVersion.cs first."
+          }
+
+      - name: Publish CLI
+        run: >
+          dotnet publish src/Lapassay.Cli/Lapassay.Cli.csproj -c Release -r win-x64
+          --self-contained -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
+          -o publish/cli
+
+      - name: Publish GUI
+        run: >
+          dotnet publish src/Lapassay.Gui/Lapassay.Gui.csproj -c Release -r win-x64
+          --self-contained -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
+          -o publish/gui
+
+      - name: Package
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory dist | Out-Null
+          # The ONNX model ships as a loose file beside the exe (models\squeezenet1.0-9.onnx)
+          # — zip each publish folder whole so the AI benchmark works out of the box.
+          Compress-Archive -Path publish/cli/* -DestinationPath "dist/lapassay-cli-${{ github.ref_name }}-win-x64.zip"
+          Compress-Archive -Path publish/gui/* -DestinationPath "dist/lapassay-gui-${{ github.ref_name }}-win-x64.zip"
+          Get-ChildItem dist | ForEach-Object {
+            "$((Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower())  $($_.Name)"
+          } | Set-Content dist/SHA256SUMS.txt
+          Get-Content dist/SHA256SUMS.txt
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true
+          draft: true

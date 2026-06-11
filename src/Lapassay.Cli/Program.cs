@@ -355,6 +355,11 @@ static void PrintSummary(BenchmarkRun run)
         Console.WriteLine($"║    GPU:  {run.Scores.Gpu,-6}                              ║");
     Console.WriteLine("║  (baseline: mid-range 2024 laptop = 1000)    ║");
     Console.WriteLine("╚══════════════════════════════════════════════╝");
+    if (run.Context is not null)
+    {
+        var (level, detail) = RunConfidence.Assess(run.Context);
+        Console.WriteLine($"  Confidence: {level}  ({detail})");
+    }
     if (run.Scores.Categories.Count > 0)
     {
         Console.WriteLine();

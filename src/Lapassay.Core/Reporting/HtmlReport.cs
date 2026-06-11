@@ -242,6 +242,13 @@ footer a { color: var(--muted); }
             }
             sb.AppendLine("  </div>");
         }
+        if (run.Context is not null)
+        {
+            var (level, detail) = RunConfidence.Assess(run.Context);
+            sb.AppendLine("  <div class=\"category-chips\">");
+            sb.AppendLine($"    <span class=\"chip\"><span class=\"chip-label\">Confidence</span><span class=\"chip-score\">{Esc(level)}</span><span class=\"chip-label\">{Esc(detail)}</span></span>");
+            sb.AppendLine("  </div>");
+        }
         var repeatN = run.Benchmarks.FirstOrDefault(b => b.Repeats is not null)?.Repeats?.Values.Length;
         if (repeatN is > 1)
             sb.AppendLine($"  <div class=\"baseline\">Median of {repeatN} runs &middot; spread shown as [p25&ndash;p75].</div>");
@@ -589,8 +596,25 @@ footer a { color: var(--muted); }
         return sb.ToString();
     }
 
+    // A 60-minute sustained run produces ~18k samples; serializing every one into four SVG
+    // paths makes multi-MB reports that browsers chew on. The full series stays in the JSON;
+    // the chart is capped at this many points (uniform stride, endpoints kept).
+    const int MaxSvgPointsPerSeries = 1200;
+
+    static IReadOnlyList<SustainedSample> DecimateForSvg(IReadOnlyList<SustainedSample> samples)
+    {
+        if (samples.Count <= MaxSvgPointsPerSeries) return samples;
+        var stride = (double)samples.Count / MaxSvgPointsPerSeries;
+        var picked = new List<SustainedSample>(MaxSvgPointsPerSeries + 1);
+        for (var i = 0; i < MaxSvgPointsPerSeries; i++)
+            picked.Add(samples[(int)(i * stride)]);
+        picked.Add(samples[^1]);
+        return picked;
+    }
+
     static string BuildSvgChart(IReadOnlyList<SustainedSample> samples, double durationSec)
     {
+        samples = DecimateForSvg(samples);
         const int W = 820, H = 280, padL = 40, padR = 40, padT = 12, padB = 24;
         var plotW = W - padL - padR;
         var plotH = H - padT - padB;

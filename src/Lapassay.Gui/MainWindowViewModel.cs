@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Runtime.Versioning;
+using Avalonia.Media;
 using Lapassay.Core;
 using Lapassay.Core.Models;
 using Lapassay.Core.Telemetry;
@@ -113,6 +114,37 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public string ProgressLabel => _progressTotal == 0 ? "" : $"{_progressIndex} / {_progressTotal}";
 
     public ObservableCollection<CategoryRow> CategoryRows { get; } = new();
+
+    // Confidence chip — derives from the run's RunContext via the shared RunConfidence
+    // helper so the GUI, HTML report, and CLI all say the same thing.
+    static readonly IBrush ConfHigh = new SolidColorBrush(InstrumentPalette.Ok);
+    static readonly IBrush ConfMedium = new SolidColorBrush(InstrumentPalette.Accent);
+    static readonly IBrush ConfLow = new SolidColorBrush(InstrumentPalette.Bad);
+
+    string _confidenceLabel = "";
+    string _confidenceDetail = "";
+    public string ConfidenceLabel { get => _confidenceLabel; set { if (Set(ref _confidenceLabel, value)) { OnPropertyChanged(nameof(HasConfidence)); OnPropertyChanged(nameof(ConfidenceBrush)); } } }
+    public string ConfidenceDetail { get => _confidenceDetail; set => Set(ref _confidenceDetail, value); }
+    public bool HasConfidence => _confidenceLabel.Length > 0;
+    public IBrush ConfidenceBrush => _confidenceLabel switch
+    {
+        "HIGH" => ConfHigh,
+        "MEDIUM" => ConfMedium,
+        _ => ConfLow,
+    };
+
+    public void SetConfidence(RunContext? context)
+    {
+        if (context is null)
+        {
+            ConfidenceLabel = "";
+            ConfidenceDetail = "";
+            return;
+        }
+        var (level, detail) = RunConfidence.Assess(context);
+        ConfidenceLabel = level;
+        ConfidenceDetail = detail;
+    }
 
     public void SetScores(Lapassay.Core.Models.Scores scores)
     {

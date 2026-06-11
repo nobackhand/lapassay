@@ -46,7 +46,10 @@ public static class Runner
                     options.Cancel.ThrowIfCancellationRequested();
             }
         }
-        return RepeatAggregation.Merge(runs);
+        var merged = RepeatAggregation.Merge(runs);
+        if (merged.Context is { } ctx)
+            merged = merged with { Context = ctx with { RepeatCount = repeat } };
+        return merged;
     }
 
     public static BenchmarkRun Run(RunOptions options, Action<string>? log = null)
@@ -54,6 +57,7 @@ public static class Runner
         log ??= _ => { };
         log("Capturing environment...");
         var env = EnvironmentCapture.Capture();
+        var preflight = Preflight.Check();
 
         var results = new List<BenchmarkResult>();
         List<ScalingPoint>? scalingCurve = null;
@@ -142,7 +146,8 @@ public static class Runner
             Environment: env,
             Scores: scores,
             Benchmarks: scored,
-            ScalingCurve: scalingCurve);
+            ScalingCurve: scalingCurve,
+            Context: new RunContext(preflight.IsAdmin, preflight.DeveloperMode, env.Os.OnBattery));
     }
 
     /// <summary>Generic CPU bench runner — times `run` with warmup/measurement, captures telemetry, builds BenchmarkResult.</summary>
