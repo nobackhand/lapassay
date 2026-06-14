@@ -1,9 +1,11 @@
 name: Release
 
-# Tag-triggered release: push a tag like `v0.7.0` and this builds both binaries,
-# zips them with the ONNX model, and attaches everything (plus SHA256SUMS) to a
-# GitHub release. Keep the tag in sync with LapassayVersion.Value — the build
-# fails loudly if they disagree, so a release can never ship a lying --version.
+# Two ways to cut a release, both producing the same draft GitHub release with
+# both self-contained binaries (+ ONNX model) and SHA256SUMS:
+#   1. Push a tag `v0.7.0` — the normal path. The tag must match LapassayVersion.Value.
+#   2. Run this workflow manually (workflow_dispatch) on a branch — useful when tags
+#      can't be pushed directly. The version is read from source and the tag is
+#      created by the release step.
 #
 # No PublishTrimmed: Avalonia, LibreHardwareMonitor, and WMI are reflection-heavy
 # and break under trimming. Single-file + self-contained only.
@@ -11,6 +13,7 @@ name: Release
 on:
   push:
     tags: ['v*']
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -26,14 +29,26 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
-      - name: Check tag matches LapassayVersion
+      - name: Resolve version
+        id: ver
         shell: pwsh
         run: |
-          $tag = '${{ github.ref_name }}'.TrimStart('v')
           $src = Get-Content src/Lapassay.Core/LapassayVersion.cs -Raw
-          if ($src -notmatch [regex]::Escape("Value = `"$tag`"")) {
-            Write-Error "Tag v$tag does not match LapassayVersion.Value — update src/Lapassay.Core/LapassayVersion.cs first."
+          if ($src -notmatch 'Value\s*=\s*"([0-9]+\.[0-9]+\.[0-9]+)"') {
+            Write-Error "Could not read LapassayVersion.Value from source."
           }
+          $version = $Matches[1]
+          # On a tag push, the tag must match the source version so a release can't
+          # ship a binary whose --version disagrees with its tag.
+          if ($env:GITHUB_REF_TYPE -eq 'tag') {
+            $tag = $env:GITHUB_REF_NAME.TrimStart('v')
+            if ($tag -ne $version) {
+              Write-Error "Tag v$tag does not match LapassayVersion.Value ($version) — update the source first."
+            }
+          }
+          "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "tag=v$version"    | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          Write-Host "Releasing v$version"
 
       - name: Publish CLI
         run: >
@@ -50,19 +65,22 @@ jobs:
       - name: Package
         shell: pwsh
         run: |
+          $tag = '${{ steps.ver.outputs.tag }}'
           New-Item -ItemType Directory dist | Out-Null
           # The ONNX model ships as a loose file beside the exe (models\squeezenet1.0-9.onnx)
           # — zip each publish folder whole so the AI benchmark works out of the box.
-          Compress-Archive -Path publish/cli/* -DestinationPath "dist/lapassay-cli-${{ github.ref_name }}-win-x64.zip"
-          Compress-Archive -Path publish/gui/* -DestinationPath "dist/lapassay-gui-${{ github.ref_name }}-win-x64.zip"
+          Compress-Archive -Path publish/cli/* -DestinationPath "dist/lapassay-cli-$tag-win-x64.zip"
+          Compress-Archive -Path publish/gui/* -DestinationPath "dist/lapassay-gui-$tag-win-x64.zip"
           Get-ChildItem dist | ForEach-Object {
             "$((Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower())  $($_.Name)"
           } | Set-Content dist/SHA256SUMS.txt
           Get-Content dist/SHA256SUMS.txt
 
-      - name: Create release
+      - name: Create draft release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.ver.outputs.tag }}
+          name: Lapassay ${{ steps.ver.outputs.tag }}
           files: dist/*
           generate_release_notes: true
           draft: true
