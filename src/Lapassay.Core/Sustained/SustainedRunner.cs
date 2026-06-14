@@ -113,9 +113,9 @@ public static class SustainedRunner
 
         var runId = $"{DateTimeOffset.UtcNow:yyyy-MM-ddTHH:mm:ssZ}-{Environment.MachineName.ToLowerInvariant()}-sustained-{Guid.NewGuid().ToString()[..8]}";
         return new SustainedRun(
-            SchemaVersion: "1.0",
+            SchemaVersion: LapassayVersion.SustainedSchema,
             Tool: "lapassay",
-            ToolVersion: "0.4.0",
+            ToolVersion: LapassayVersion.Value,
             RunId: runId,
             Environment: env,
             DurationSec: sw.Elapsed.TotalSeconds,

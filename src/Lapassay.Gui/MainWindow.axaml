@@ -29,7 +29,7 @@
                                LetterSpacing="6"
                                Foreground="{DynamicResource TextBrush}"/>
                 </StackPanel>
-                <TextBlock Text="CPU + GPU INSTRUMENTATION · v0.6.0"
+                <TextBlock Text="{Binding VersionText}"
                            FontFamily="{DynamicResource MonoFontMedium}" FontSize="9"
                            LetterSpacing="3" Margin="24,0,0,0"
                            Foreground="{DynamicResource TextDimBrush}"/>
@@ -107,6 +107,26 @@
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
+                    <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,0,2"
+                                IsVisible="{Binding HasConfidence}"
+                                ToolTip.Tip="How much to trust this score. Driven by GPU clock locking (Developer Mode) and repeat count; power source and telemetry access shown as context.">
+                        <Border Classes="pill" BorderBrush="{Binding ConfidenceBrush}">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock Text="CONFIDENCE"
+                                           FontFamily="{DynamicResource MonoFontMedium}" FontSize="9"
+                                           LetterSpacing="2"
+                                           Foreground="{DynamicResource TextDimBrush}"/>
+                                <TextBlock Text="{Binding ConfidenceLabel}"
+                                           FontFamily="{DynamicResource MonoFontSemi}" FontSize="10"
+                                           Foreground="{Binding ConfidenceBrush}"/>
+                            </StackPanel>
+                        </Border>
+                        <TextBlock Text="{Binding ConfidenceDetail}"
+                                   FontFamily="{DynamicResource MonoFont}" FontSize="10"
+                                   Foreground="{DynamicResource TextFaintBrush}"
+                                   VerticalAlignment="Center"
+                                   TextTrimming="CharacterEllipsis"/>
+                    </StackPanel>
                     <TextBlock Text="BASELINE = MID-RANGE 2024 LAPTOP = 1000"
                                FontFamily="{DynamicResource MonoFontMedium}" FontSize="9"
                                LetterSpacing="2"
@@ -171,6 +191,8 @@
                             <Border Width="1" Background="{DynamicResource BorderSoftBrush}" Height="22" Margin="6,0"/>
                             <Button Classes="primary" Content="{Binding RunButtonLabel}"
                                     Click="OnRunClicked" IsEnabled="{Binding !IsRunning}"/>
+                            <Button Content="STOP" Click="OnStopRunClicked" IsEnabled="{Binding IsRunning}"
+                                    ToolTip.Tip="Stop after the current kernel finishes — no partial result is written"/>
                             <Button Content="VIEW REPORT" Click="OnViewReportClicked" IsEnabled="{Binding HasReport}"
                                     ToolTip.Tip="Open the auto-generated HTML report in your browser"/>
                             <Button Content="EXPORT (REDACTED)" Click="OnViewShareableReportClicked" IsEnabled="{Binding HasReport}"

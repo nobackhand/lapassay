@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text;
 using System.Web;
+using Lapassay.Core;
 using Lapassay.Core.Models;
 
 namespace Lapassay.Core.Reporting;
@@ -19,7 +20,7 @@ public static class HtmlReport
         var sections = new List<string>
         {
             EnvironmentSection(run.Environment, anonymize),
-            BenchmarksSection(run.Benchmarks),
+            BenchmarksSection(run.Benchmarks, anonymize),
         };
         if (run.ScalingCurve is { Count: > 0 })
             sections.Add(ScalingCurveSection(run.ScalingCurve));
@@ -50,7 +51,7 @@ public static class HtmlReport
             {
                 DiffTableSection(cmp),
             },
-            footerHtml: $"<footer>Lapassay diff &middot; {Esc(cmp.LabelA)} vs {Esc(cmp.LabelB)}{(anonymize ? " &middot; anonymized" : "")}</footer>");
+            footerHtml: $"<footer>Lapassay diff &middot; {Esc(cmp.LabelA)} vs {Esc(cmp.LabelB)}{(anonymize ? " &middot; anonymized" : "")}<br>Free, offline, open-source laptop benchmark &middot; {RepoLink}</footer>");
 
     public static void WriteToFile(BenchmarkRun run, string path, bool anonymize = false)
     {
@@ -82,6 +83,7 @@ public static class HtmlReport
         sb.AppendLine("<html lang=\"en\"><head>");
         sb.AppendLine("<meta charset=\"utf-8\">");
         sb.AppendLine("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">");
+        sb.AppendLine("<meta name=\"color-scheme\" content=\"light dark\">");
         sb.AppendLine($"<title>{Esc(title)}</title>");
         sb.AppendLine("<style>");
         sb.AppendLine(Css);
@@ -101,15 +103,17 @@ public static class HtmlReport
     --fg: #1f2328;
     --muted: #59636e;
     --bg: #ffffff;
+    --page: #f6f8fa;
     --soft: #f6f8fa;
     --border: #d0d7de;
+    --grid: #eaeef2;
     --blue: #0969DA;
     --green: #1A7F37;
     --red: #CF222E;
     --amber: #9A6700;
 }
 * { box-sizing: border-box; }
-html, body { margin: 0; padding: 0; background: var(--soft); color: var(--fg); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+html, body { margin: 0; padding: 0; background: var(--page); color: var(--fg); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
 main { max-width: 880px; margin: 32px auto; padding: 0 20px 60px; }
 
 .hero { background: var(--blue); color: white; border-radius: 12px; padding: 28px 32px; margin-bottom: 24px; }
@@ -117,7 +121,7 @@ main { max-width: 880px; margin: 32px auto; padding: 0 20px 60px; }
 .hero h1 { margin: 0 0 4px; font-size: 14px; font-weight: 500; opacity: .85; letter-spacing: .04em; text-transform: uppercase; }
 .hero .score { font-size: 64px; font-weight: 700; line-height: 1; margin: 4px 0 6px; }
 .hero .score-label { font-size: 12px; opacity: .85; letter-spacing: .04em; text-transform: uppercase; }
-.hero .subs { display: flex; gap: 28px; margin-top: 14px; }
+.hero .subs { display: flex; flex-wrap: wrap; gap: 14px 28px; margin-top: 14px; }
 .hero .sub { }
 .hero .sub-value { font-size: 22px; font-weight: 600; }
 .hero .sub-label { font-size: 11px; opacity: .85; text-transform: uppercase; letter-spacing: .04em; }
@@ -134,9 +138,12 @@ section h2 { margin: 0 0 12px; font-size: 13px; font-weight: 600; letter-spacing
 
 .env-grid { display: grid; grid-template-columns: max-content 1fr; gap: 6px 24px; font-size: 14px; }
 .env-grid dt { color: var(--muted); }
-.env-grid dd { margin: 0; font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace; font-size: 13px; }
+.env-grid dd { margin: 0; font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace; font-size: 13px; word-break: break-word; }
 
-table.bench { width: 100%; border-collapse: collapse; font-size: 14px; }
+/* Wide tables stay readable on phones: scroll within the card instead of forcing
+   the whole page sideways. */
+.table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+table.bench { width: 100%; border-collapse: collapse; font-size: 14px; min-width: 560px; }
 table.bench th { text-align: left; padding: 8px 8px 10px; font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; border-bottom: 1px solid var(--border); }
 table.bench th.num { text-align: right; }
 table.bench td { padding: 10px 8px; border-bottom: 1px solid var(--soft); }
@@ -169,7 +176,38 @@ table.bench tr:last-child td { border-bottom: none; }
 
 footer { text-align: center; font-size: 11px; color: var(--muted); margin-top: 24px; padding: 8px; }
 footer a { color: var(--muted); }
+
+@media (max-width: 560px) {
+    main { margin: 16px auto; padding: 0 14px 40px; }
+    .hero { padding: 22px 20px; border-radius: 10px; }
+    .hero .score { font-size: 48px; }
+    section { padding: 16px; }
+    .env-grid { grid-template-columns: 1fr; gap: 2px 0; }
+    .env-grid dt { margin-top: 8px; }
+    .env-grid dt:first-of-type { margin-top: 0; }
+}
+
+/* Opt-in dark theme — values taken from the app's instrument palette (App.axaml),
+   which are already known to read well together. Light mode is unchanged. The
+   colored hero cards and the saturated data-series colors stay as-is; only the
+   'paper' (page, cards, text, borders, grid) flips. */
+@media (prefers-color-scheme: dark) {
+    :root {
+        --fg: #F4EDE4;
+        --muted: #998B78;
+        --bg: #16110D;
+        --page: #0C0A09;
+        --soft: #221A13;
+        --border: #2A2118;
+        --grid: #1C1610;
+    }
+}
 ";
+
+    // A benchmark scoring this much (1.5× the 1000-point baseline) fills the score bar completely.
+    const double FullBarScore = 1500.0;
+    // Per-benchmark diff bars saturate at ±this percent, so one outlier can't dwarf the rest.
+    const double DiffBarSaturationPct = 50.0;
 
     // -------------------- hero blocks --------------------
 
@@ -200,25 +238,24 @@ footer a { color: var(--muted); }
             sb.AppendLine("  <div class=\"category-chips\">");
             foreach (var c in run.Scores.Categories)
             {
-                sb.AppendLine($"    <span class=\"chip\"><span class=\"chip-label\">{Esc(PrettyCategory(c.Name))}</span><span class=\"chip-score\">{c.Score}</span></span>");
+                sb.AppendLine($"    <span class=\"chip\"><span class=\"chip-label\">{Esc(BenchmarkCatalog.CategoryLabel(c.Name))}</span><span class=\"chip-score\">{c.Score}</span></span>");
             }
             sb.AppendLine("  </div>");
         }
+        if (run.Context is not null)
+        {
+            var (level, detail) = RunConfidence.Assess(run.Context);
+            sb.AppendLine("  <div class=\"category-chips\">");
+            sb.AppendLine($"    <span class=\"chip\"><span class=\"chip-label\">Confidence</span><span class=\"chip-score\">{Esc(level)}</span><span class=\"chip-label\">{Esc(detail)}</span></span>");
+            sb.AppendLine("  </div>");
+        }
+        var repeatN = run.Benchmarks.FirstOrDefault(b => b.Repeats is not null)?.Repeats?.Values.Length;
+        if (repeatN is > 1)
+            sb.AppendLine($"  <div class=\"baseline\">Median of {repeatN} runs &middot; spread shown as [p25&ndash;p75].</div>");
         sb.AppendLine("  <div class=\"baseline\">Baseline: mid-range 2024 laptop = 1000.</div>");
         sb.AppendLine("</div>");
         return sb.ToString();
     }
-
-    static string PrettyCategory(string raw) => raw switch
-    {
-        "cpu.integer"  => "CPU integer",
-        "cpu.float"    => "CPU float",
-        "cpu.memory"   => "Memory",
-        "cpu.parallel" => "CPU parallel",
-        "gpu.compute"  => "GPU compute",
-        "gpu.ai"       => "GPU AI",
-        _              => raw,
-    };
 
     static string HeroDiff(RunComparison cmp)
     {
@@ -266,6 +303,7 @@ footer a { color: var(--muted); }
         var sb = new StringBuilder();
         sb.AppendLine("<section>");
         sb.AppendLine("  <h2>Per-benchmark delta</h2>");
+        sb.AppendLine("  <div class=\"table-wrap\">");
         sb.AppendLine("  <table class=\"bench\">");
         sb.AppendLine("    <thead><tr>");
         sb.AppendLine("      <th>ID</th>");
@@ -283,7 +321,7 @@ footer a { color: var(--muted); }
             var deltaSign = d.DeltaPct >= 0 ? "+" : "";
             // For lower-is-better, flip the sign on the bar so 'better' is always green (right side).
             var fillPct = d.HigherIsBetter ? d.DeltaPct : -d.DeltaPct;
-            var clamped = Math.Max(-50.0, Math.Min(50.0, fillPct));
+            var clamped = Math.Max(-DiffBarSaturationPct, Math.Min(DiffBarSaturationPct, fillPct));
             var halfBar = Math.Abs(clamped); // 0..50 → 0..50% of half
             var fillCls = clamped >= 0 ? "pos" : "neg";
 
@@ -303,6 +341,7 @@ footer a { color: var(--muted); }
         }
 
         sb.AppendLine("    </tbody></table>");
+        sb.AppendLine("  </div>");
         sb.AppendLine("  <p style=\"font-size:11px;color:#59636e;margin-top:10px\">Bars saturate at &plusmn;50%. Green = B improved over A; red = regressed.</p>");
         sb.AppendLine("</section>");
         return sb.ToString();
@@ -351,7 +390,10 @@ footer a { color: var(--muted); }
         sb.AppendLine("<section>");
         sb.AppendLine("  <h2>System</h2>");
         sb.AppendLine("  <dl class=\"env-grid\">");
-        sb.AppendLine($"    <dt>CPU</dt><dd>{Esc(cpuModel)} &middot; base {env.Cpu.MaxTurboMhz} MHz &middot; L3 {env.Cpu.L3CacheMb} MB</dd>");
+        // Old runs (pre-clock-fix) stored the WMI rated clock in MaxTurboMhz; fall back so
+        // their reports still show a number.
+        var baseMhz = env.Cpu.BaseClockMhz > 0 ? env.Cpu.BaseClockMhz : env.Cpu.MaxTurboMhz;
+        sb.AppendLine($"    <dt>CPU</dt><dd>{Esc(cpuModel)} &middot; base {baseMhz} MHz &middot; L3 {env.Cpu.L3CacheMb} MB</dd>");
         foreach (var g in gpuLines)
             sb.AppendLine($"    <dt>GPU</dt><dd>{Esc(g)}</dd>");
         sb.AppendLine($"    <dt>RAM</dt><dd>{Esc(ramLine)}</dd>");
@@ -375,14 +417,16 @@ footer a { color: var(--muted); }
         return "GPU";
     }
 
-    static string BenchmarksSection(IEnumerable<BenchmarkResult> benches)
+    static string BenchmarksSection(IEnumerable<BenchmarkResult> benches, bool anonymize)
     {
         var sb = new StringBuilder();
         sb.AppendLine("<section>");
         sb.AppendLine("  <h2>Benchmarks</h2>");
+        sb.AppendLine("  <div class=\"table-wrap\">");
         sb.AppendLine("  <table class=\"bench\">");
         sb.AppendLine("    <thead><tr>");
         sb.AppendLine("      <th>ID</th>");
+        sb.AppendLine("      <th>What it measures</th>");
         sb.AppendLine("      <th class=\"num\">Value</th>");
         sb.AppendLine("      <th>Metric</th>");
         sb.AppendLine("      <th class=\"num\">Stdev</th>");
@@ -391,11 +435,23 @@ footer a { color: var(--muted); }
         foreach (var b in benches)
         {
             var stdevPct = b.Stats.Median != 0 ? b.Stats.Stdev / b.Stats.Median * 100 : 0;
-            var fillPct = Math.Min(100, Math.Max(0, b.Score / 15.0)); // 1500 score = full bar
+            var fillPct = Math.Min(100, Math.Max(0, b.Score / FullBarScore * 100));
             var barClass = b.Kind == "gpu" ? "score-bar gpu" : "score-bar";
+            var valueCell = b.Repeats is { } rep
+                ? $"{b.Value.ToString("F1", CultureInfo.InvariantCulture)} <span style=\"opacity:.5;font-size:11px\">[{rep.P25.ToString("F1", CultureInfo.InvariantCulture)}&ndash;{rep.P75.ToString("F1", CultureInfo.InvariantCulture)}]</span>"
+                : b.Value.ToString("F1", CultureInfo.InvariantCulture);
+            // GPU rows disclose which adapter ran the kernel (matmuls and ONNX/DirectML can
+            // land on different chips of a dual-GPU laptop); redacted in anonymized exports.
+            var descCell = Esc(BenchmarkCatalog.Describe(b.Id));
+            if (b.Adapter is { Length: > 0 } adapter)
+            {
+                var shownAdapter = anonymize ? GenericGpu(adapter) : adapter;
+                descCell += $" <span style=\"opacity:.55;font-size:11px\">&middot; on {Esc(shownAdapter)}</span>";
+            }
             sb.AppendLine("    <tr>");
             sb.AppendLine($"      <td class=\"id\">{Esc(b.Id)}</td>");
-            sb.AppendLine($"      <td class=\"num\">{b.Value.ToString("F1", CultureInfo.InvariantCulture)}</td>");
+            sb.AppendLine($"      <td>{descCell}</td>");
+            sb.AppendLine($"      <td class=\"num\">{valueCell}</td>");
             sb.AppendLine($"      <td>{Esc(b.Metric)}</td>");
             sb.AppendLine($"      <td class=\"num\">{stdevPct.ToString("F1", CultureInfo.InvariantCulture)}%</td>");
             sb.AppendLine("      <td class=\"num\">");
@@ -408,6 +464,7 @@ footer a { color: var(--muted); }
         }
         sb.AppendLine("    </tbody>");
         sb.AppendLine("  </table>");
+        sb.AppendLine("  </div>");
         sb.AppendLine("</section>");
         return sb.ToString();
     }
@@ -424,6 +481,7 @@ footer a { color: var(--muted); }
         sb.AppendLine("    <span><span class=\"swatch\" style=\"background:#0969DA\"></span>Measured GFLOPS</span>");
         sb.AppendLine("    <span style=\"color:#59636e\"><span class=\"swatch dash\"></span>Ideal linear scaling</span>");
         sb.AppendLine("  </div>");
+        sb.AppendLine("  <div class=\"table-wrap\">");
         sb.AppendLine("  <table class=\"bench\" style=\"margin-top:10px\">");
         sb.AppendLine("    <thead><tr><th>Threads</th><th class=\"num\">GFLOPS</th><th class=\"num\">Efficiency</th></tr></thead><tbody>");
         foreach (var p in curve)
@@ -435,6 +493,7 @@ footer a { color: var(--muted); }
             sb.AppendLine("    </tr>");
         }
         sb.AppendLine("    </tbody></table>");
+        sb.AppendLine("  </div>");
         sb.AppendLine("</section>");
         return sb.ToString();
     }
@@ -471,7 +530,7 @@ footer a { color: var(--muted); }
         for (var i = 1; i < 4; i++)
         {
             var y = padT + plotH * i / 4.0;
-            sb.AppendLine($"  <line x1=\"{padL}\" y1=\"{y.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)}\" x2=\"{padL + plotW}\" y2=\"{y.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)}\" stroke=\"#eaeef2\" stroke-width=\"1\"/>");
+            sb.AppendLine($"  <line x1=\"{padL}\" y1=\"{y.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)}\" x2=\"{padL + plotW}\" y2=\"{y.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)}\" stroke=\"var(--grid)\" stroke-width=\"1\"/>");
         }
         // Axes
         sb.AppendLine($"  <line x1=\"{padL}\" y1=\"{padT}\" x2=\"{padL}\" y2=\"{padT + plotH}\" stroke=\"#d0d7de\"/>");
@@ -537,8 +596,25 @@ footer a { color: var(--muted); }
         return sb.ToString();
     }
 
+    // A 60-minute sustained run produces ~18k samples; serializing every one into four SVG
+    // paths makes multi-MB reports that browsers chew on. The full series stays in the JSON;
+    // the chart is capped at this many points (uniform stride, endpoints kept).
+    const int MaxSvgPointsPerSeries = 1200;
+
+    static IReadOnlyList<SustainedSample> DecimateForSvg(IReadOnlyList<SustainedSample> samples)
+    {
+        if (samples.Count <= MaxSvgPointsPerSeries) return samples;
+        var stride = (double)samples.Count / MaxSvgPointsPerSeries;
+        var picked = new List<SustainedSample>(MaxSvgPointsPerSeries + 1);
+        for (var i = 0; i < MaxSvgPointsPerSeries; i++)
+            picked.Add(samples[(int)(i * stride)]);
+        picked.Add(samples[^1]);
+        return picked;
+    }
+
     static string BuildSvgChart(IReadOnlyList<SustainedSample> samples, double durationSec)
     {
+        samples = DecimateForSvg(samples);
         const int W = 820, H = 280, padL = 40, padR = 40, padT = 12, padB = 24;
         var plotW = W - padL - padR;
         var plotH = H - padT - padB;
@@ -575,7 +651,7 @@ footer a { color: var(--muted); }
         for (var i = 1; i < 4; i++)
         {
             var y = padT + plotH * i / 4.0;
-            sb.AppendLine($"  <line x1=\"{padL}\" y1=\"{y.ToString("F1", CultureInfo.InvariantCulture)}\" x2=\"{padL + plotW}\" y2=\"{y.ToString("F1", CultureInfo.InvariantCulture)}\" stroke=\"#eaeef2\" stroke-width=\"1\"/>");
+            sb.AppendLine($"  <line x1=\"{padL}\" y1=\"{y.ToString("F1", CultureInfo.InvariantCulture)}\" x2=\"{padL + plotW}\" y2=\"{y.ToString("F1", CultureInfo.InvariantCulture)}\" stroke=\"var(--grid)\" stroke-width=\"1\"/>");
         }
         // Axes
         sb.AppendLine($"  <line x1=\"{padL}\" y1=\"{padT}\" x2=\"{padL}\" y2=\"{padT + plotH}\" stroke=\"#d0d7de\" stroke-width=\"1\"/>");
@@ -630,21 +706,25 @@ footer a { color: var(--muted); }
 
     // -------------------- footer --------------------
 
+    const string RepoLink = "<a href=\"https://github.com/nobackhand/lapassay\">github.com/nobackhand/lapassay</a>";
+
     static string Footer(string runId, string toolVersion, bool anonymize)
     {
         var rid = anonymize ? Anonymize(runId) : runId;
-        return $"<footer>Lapassay {Esc(toolVersion)} &middot; run {Esc(rid)}{(anonymize ? " &middot; anonymized" : "")}</footer>";
+        return $"<footer>Lapassay {Esc(toolVersion)} &middot; run {Esc(rid)}{(anonymize ? " &middot; anonymized" : "")}<br>Free, offline, open-source laptop benchmark &middot; {RepoLink}</footer>";
     }
 
     static string Hostname(string runId)
     {
-        // runId format: "<ISO timestamp>Z-<host>-[sustained-]<8charId>".
-        // ISO timestamp itself contains '-', so split on the first 'Z-'.
+        // runId format: "<ISO timestamp>Z-<host>-<8charId>". The ISO timestamp contains
+        // '-', so anchor on the trailing 'Z'. The host itself may contain '-' (Windows
+        // names allow it), so peel off the trailing "-<id>" segment rather than splitting
+        // on the FIRST '-' (which truncated hyphenated hostnames).
         var zIdx = runId.IndexOf('Z');
         if (zIdx < 0) return "host";
-        var afterZ = runId.Substring(zIdx + 1).TrimStart('-');
-        var firstDash = afterZ.IndexOf('-');
-        return firstDash < 0 ? afterZ : afterZ.Substring(0, firstDash);
+        var afterZ = runId[(zIdx + 1)..].Trim('-');   // "<host>-<id>"
+        var lastDash = afterZ.LastIndexOf('-');
+        return lastDash <= 0 ? afterZ : afterZ[..lastDash];
     }
 
     static string Anonymize(string runId)

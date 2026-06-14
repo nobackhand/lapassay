@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Runtime.Versioning;
 using System.Text.Json;
 using Lapassay.Core;
@@ -15,7 +16,7 @@ if (args.Length == 0 || args[0] is "--help" or "-h")
 
 if (args[0] is "--version")
 {
-    Console.WriteLine("lapassay 0.6.0");
+    Console.WriteLine($"lapassay {LapassayVersion.Value}");
     return 0;
 }
 
@@ -34,6 +35,7 @@ int RunSingle(string[] cmdArgs)
     bool noHtml = false;
     string? outPath = null;
     int cpuN = 1024, gpuN = 2048;
+    int repeat = 1, repeatCooldownSec = 30;
 
     for (var i = 0; i < cmdArgs.Length; i++)
     {
@@ -43,8 +45,18 @@ int RunSingle(string[] cmdArgs)
             case "--gpu": gpu = true; break;
             case "--no-html": noHtml = true; break;
             case "--out" when i + 1 < cmdArgs.Length: outPath = cmdArgs[++i]; break;
-            case "--cpu-n" when i + 1 < cmdArgs.Length: cpuN = int.Parse(cmdArgs[++i]); break;
-            case "--gpu-n" when i + 1 < cmdArgs.Length: gpuN = int.Parse(cmdArgs[++i]); break;
+            case "--cpu-n" when i + 1 < cmdArgs.Length:
+                if (!TryParseIntArg(cmdArgs[++i], "--cpu-n", out cpuN)) return 2;
+                break;
+            case "--gpu-n" when i + 1 < cmdArgs.Length:
+                if (!TryParseIntArg(cmdArgs[++i], "--gpu-n", out gpuN)) return 2;
+                break;
+            case "--repeat" when i + 1 < cmdArgs.Length:
+                if (!TryParseIntArg(cmdArgs[++i], "--repeat", out repeat)) return 2;
+                break;
+            case "--repeat-cooldown-sec" when i + 1 < cmdArgs.Length:
+                if (!TryParseIntArg(cmdArgs[++i], "--repeat-cooldown-sec", out repeatCooldownSec)) return 2;
+                break;
             default:
                 Console.Error.WriteLine($"Unknown option: {cmdArgs[i]}");
                 return 2;
@@ -52,12 +64,25 @@ int RunSingle(string[] cmdArgs)
     }
     if (!cpu && !gpu) { cpu = true; gpu = true; }
 
+    // Range checks mirror the GUI's NumericUpDown bounds — out-of-range values previously
+    // crashed deep inside a kernel with a raw exception.
+    if (!CheckRange(cpuN, 64, 4096, "--cpu-n")) return 2;
+    if (!CheckRange(gpuN, 64, 8192, "--gpu-n")) return 2;
+    if (!CheckRange(repeat, 1, 20, "--repeat")) return 2;
+    if (!CheckRange(repeatCooldownSec, 0, 600, "--repeat-cooldown-sec")) return 2;
+
     PrintPreflight();
     outPath ??= JsonReport.DefaultPath();
 
     try
     {
-        var run = Runner.Run(new Runner.RunOptions(cpu, gpu, cpuN, gpuN), Console.WriteLine);
+        using var cts = new CancellationTokenSource();
+        Console.CancelKeyPress += (_, e) => { e.Cancel = true; cts.Cancel(); };
+
+        var runOptions = new Runner.RunOptions(cpu, gpu, cpuN, gpuN, Cancel: cts.Token);
+        var run = repeat > 1
+            ? Runner.RunRepeated(runOptions, repeat, repeatCooldownSec, Console.WriteLine)
+            : Runner.Run(runOptions, Console.WriteLine);
         JsonReport.WriteToFile(run, outPath);
         Console.WriteLine();
         Console.WriteLine($"Wrote {outPath}");
@@ -69,6 +94,11 @@ int RunSingle(string[] cmdArgs)
         }
         PrintSummary(run);
         return 0;
+    }
+    catch (OperationCanceledException)
+    {
+        Console.Error.WriteLine("Cancelled — no result written.");
+        return 130;
     }
     catch (Exception ex)
     {
@@ -87,13 +117,21 @@ int RunSustained(string[] cmdArgs)
     {
         switch (cmdArgs[i])
         {
-            case "--duration" when i + 1 < cmdArgs.Length: duration = double.Parse(cmdArgs[++i]); break;
+            case "--duration" when i + 1 < cmdArgs.Length:
+                if (!TryParseDoubleArg(cmdArgs[++i], "--duration", out duration)) return 2;
+                break;
             case "--out" when i + 1 < cmdArgs.Length: outPath = cmdArgs[++i]; break;
             case "--no-html": noHtml = true; break;
             default:
                 Console.Error.WriteLine($"Unknown option: {cmdArgs[i]}");
                 return 2;
         }
+    }
+
+    if (duration <= 0 || duration > 86400)
+    {
+        Console.Error.WriteLine($"Error: --duration must be between 1 and 86400 seconds, got {duration}.");
+        return 2;
     }
 
     PrintPreflight();
@@ -157,12 +195,12 @@ int CompareRuns(string[] cmdArgs)
     if (!File.Exists(aPath)) { Console.Error.WriteLine($"File not found: {aPath}"); return 1; }
     if (!File.Exists(bPath)) { Console.Error.WriteLine($"File not found: {bPath}"); return 1; }
 
-    var jsonOpts = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
-    BenchmarkRun a, b;
+    var labelA = Path.GetFileNameWithoutExtension(aPath);
+    var labelB = Path.GetFileNameWithoutExtension(bPath);
+    RunComparison cmp;
     try
     {
-        a = JsonSerializer.Deserialize<BenchmarkRun>(File.ReadAllText(aPath), jsonOpts)!;
-        b = JsonSerializer.Deserialize<BenchmarkRun>(File.ReadAllText(bPath), jsonOpts)!;
+        cmp = DiffService.BuildDiff(aPath, bPath, labelA, labelB);
     }
     catch (Exception ex)
     {
@@ -170,16 +208,12 @@ int CompareRuns(string[] cmdArgs)
         return 1;
     }
 
-    var labelA = Path.GetFileNameWithoutExtension(aPath);
-    var labelB = Path.GetFileNameWithoutExtension(bPath);
-    var cmp = Compare.Diff(a, b, labelA, labelB);
-
     PrintCompareConsole(cmp);
 
     if (!noHtml)
     {
         outPath ??= Path.Combine(Path.GetDirectoryName(bPath) ?? ".", $"diff-{labelA}-vs-{labelB}.html");
-        HtmlReport.WriteToFile(cmp, outPath);
+        DiffService.WriteHtml(cmp, outPath);
         Console.WriteLine();
         Console.WriteLine($"Wrote {outPath}");
     }
@@ -242,18 +276,14 @@ int RenderReport(string[] cmdArgs)
     using var doc = JsonDocument.Parse(json);
     var root = doc.RootElement;
 
-    var jsonOpts = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
-
     if (root.TryGetProperty("verdict", out _))
     {
-        var sustained = JsonSerializer.Deserialize<SustainedRun>(json, jsonOpts)
-            ?? throw new InvalidOperationException("Failed to parse SustainedRun");
+        var sustained = JsonReport.DeserializeSustained(json);
         HtmlReport.WriteToFile(sustained, outPath, anonymize);
     }
     else
     {
-        var single = JsonSerializer.Deserialize<BenchmarkRun>(json, jsonOpts)
-            ?? throw new InvalidOperationException("Failed to parse BenchmarkRun");
+        var single = JsonReport.Deserialize(json);
         HtmlReport.WriteToFile(single, outPath, anonymize);
     }
 
@@ -272,12 +302,34 @@ static void PrintPreflight()
     }
 }
 
+static bool CheckRange(int value, int min, int max, string flag)
+{
+    if (value >= min && value <= max) return true;
+    Console.Error.WriteLine($"Error: {flag} must be between {min} and {max}, got {value}.");
+    return false;
+}
+
+static bool TryParseIntArg(string raw, string flag, out int value)
+{
+    if (int.TryParse(raw, NumberStyles.Integer, CultureInfo.InvariantCulture, out value)) return true;
+    Console.Error.WriteLine($"Error: {flag} expects an integer, got '{raw}'.");
+    return false;
+}
+
+static bool TryParseDoubleArg(string raw, string flag, out double value)
+{
+    if (double.TryParse(raw, NumberStyles.Float, CultureInfo.InvariantCulture, out value)) return true;
+    Console.Error.WriteLine($"Error: {flag} expects a number, got '{raw}'.");
+    return false;
+}
+
 static void PrintUsage()
 {
-    Console.WriteLine("Lapassay 0.6.0 — Windows laptop CPU+GPU benchmark");
+    Console.WriteLine($"Lapassay {LapassayVersion.Value} — Windows laptop CPU+GPU benchmark");
     Console.WriteLine();
     Console.WriteLine("Usage:");
     Console.WriteLine("  lapassay run       [--cpu] [--gpu] [--out <path>] [--cpu-n N] [--gpu-n N] [--no-html]");
+    Console.WriteLine("                     [--repeat N] [--repeat-cooldown-sec S]");
     Console.WriteLine("  lapassay sustained [--duration SEC] [--out <path>] [--no-html]");
     Console.WriteLine("  lapassay report    <input.json> [--out path] [--anonymize]");
     Console.WriteLine("  lapassay compare   <a.json> <b.json> [--out diff.html] [--no-html]");
@@ -285,6 +337,9 @@ static void PrintUsage()
     Console.WriteLine("Notes:");
     Console.WriteLine("  * `run` and `sustained` write a JSON file and (by default) a self-contained HTML report next to it.");
     Console.WriteLine("  * Use `report --anonymize` to render an HTML stripped of hostname / CPU model string for sharing.");
+    Console.WriteLine("  * `--repeat N` runs the suite N times and reports the per-benchmark median + IQR (p25–p75).");
+    Console.WriteLine("    A cooldown (`--repeat-cooldown-sec`, default 30) runs between passes so thermal carry-over");
+    Console.WriteLine("    doesn't understate the spread.");
     Console.WriteLine("  * `compare` diffs two single-shot runs (BIOS update, AC vs battery, before/after a tweak).");
     Console.WriteLine("  * Sustained run accepts Ctrl-C for early exit; partial JSON + HTML are still written.");
 }
@@ -300,12 +355,17 @@ static void PrintSummary(BenchmarkRun run)
         Console.WriteLine($"║    GPU:  {run.Scores.Gpu,-6}                              ║");
     Console.WriteLine("║  (baseline: mid-range 2024 laptop = 1000)    ║");
     Console.WriteLine("╚══════════════════════════════════════════════╝");
+    if (run.Context is not null)
+    {
+        var (level, detail) = RunConfidence.Assess(run.Context);
+        Console.WriteLine($"  Confidence: {level}  ({detail})");
+    }
     if (run.Scores.Categories.Count > 0)
     {
         Console.WriteLine();
         Console.WriteLine("  Subscores by category:");
         foreach (var c in run.Scores.Categories)
-            Console.WriteLine($"    {c.Name,-15} {c.Score,4}   ({c.BenchmarkCount} kernels)");
+            Console.WriteLine($"    {BenchmarkCatalog.CategoryLabel(c.Name),-15} {c.Score,4}   ({c.BenchmarkCount} kernels)");
     }
     Console.WriteLine();
     Console.WriteLine($"Host: {Environment.MachineName}");
@@ -314,12 +374,16 @@ static void PrintSummary(BenchmarkRun run)
         Console.WriteLine($"GPU:  {g.Model}");
     Console.WriteLine($"RAM:  {run.Environment.Ram.TotalGb} GB @ {run.Environment.Ram.SpeedMhz} MHz");
     Console.WriteLine();
-    Console.WriteLine($"  {"Benchmark",-30} {"Metric",-10} {"Value",10} {"Score",6} {"Stdev%",8}");
+    var repeatCount = run.Benchmarks.FirstOrDefault(b => b.Repeats is not null)?.Repeats?.Values.Length;
+    if (repeatCount is > 1)
+        Console.WriteLine($"  Aggregated over {repeatCount} runs — Value is the median; IQR is the p25–p75 spread.");
+    Console.WriteLine($"  {"Benchmark",-30} {"Metric",-10} {"Value",10} {"Score",6} {"Stdev%",8}  {"IQR (p25–p75)",-18}");
     Console.WriteLine($"  {new string('-', 72)}");
     foreach (var b in run.Benchmarks)
     {
         var stdevPct = b.Stats.Median != 0 ? b.Stats.Stdev / b.Stats.Median * 100 : 0;
-        Console.WriteLine($"  {b.Id,-30} {b.Metric,-10} {b.Value,10:F1} {b.Score,6} {stdevPct,7:F2}%");
+        var iqr = b.Repeats is { } r ? $"[{r.P25:F1}–{r.P75:F1}]" : "";
+        Console.WriteLine($"  {b.Id,-30} {b.Metric,-10} {b.Value,10:F1} {b.Score,6} {stdevPct,7:F2}%  {iqr,-18}");
     }
 }
 

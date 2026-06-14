@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Runtime.Versioning;
+using Avalonia.Media;
 using Lapassay.Core;
 using Lapassay.Core.Models;
 using Lapassay.Core.Telemetry;
@@ -57,6 +58,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         }
     }
     public string RunButtonLabel => IsRunning ? "RUNNING…" : "RUN";
+    public string VersionText => $"CPU + GPU INSTRUMENTATION · v{LapassayVersion.Value}";
     public string LogContent { get => _logContent; set => Set(ref _logContent, value); }
     public string LastOutputPath { get => _lastOutputPath; set => Set(ref _lastOutputPath, value); }
     public string LastHtmlPath { get => _lastHtmlPath; set => Set(ref _lastHtmlPath, value); }
@@ -113,6 +115,37 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
     public ObservableCollection<CategoryRow> CategoryRows { get; } = new();
 
+    // Confidence chip — derives from the run's RunContext via the shared RunConfidence
+    // helper so the GUI, HTML report, and CLI all say the same thing.
+    static readonly IBrush ConfHigh = new SolidColorBrush(InstrumentPalette.Ok);
+    static readonly IBrush ConfMedium = new SolidColorBrush(InstrumentPalette.Accent);
+    static readonly IBrush ConfLow = new SolidColorBrush(InstrumentPalette.Bad);
+
+    string _confidenceLabel = "";
+    string _confidenceDetail = "";
+    public string ConfidenceLabel { get => _confidenceLabel; set { if (Set(ref _confidenceLabel, value)) { OnPropertyChanged(nameof(HasConfidence)); OnPropertyChanged(nameof(ConfidenceBrush)); } } }
+    public string ConfidenceDetail { get => _confidenceDetail; set => Set(ref _confidenceDetail, value); }
+    public bool HasConfidence => _confidenceLabel.Length > 0;
+    public IBrush ConfidenceBrush => _confidenceLabel switch
+    {
+        "HIGH" => ConfHigh,
+        "MEDIUM" => ConfMedium,
+        _ => ConfLow,
+    };
+
+    public void SetConfidence(RunContext? context)
+    {
+        if (context is null)
+        {
+            ConfidenceLabel = "";
+            ConfidenceDetail = "";
+            return;
+        }
+        var (level, detail) = RunConfidence.Assess(context);
+        ConfidenceLabel = level;
+        ConfidenceDetail = detail;
+    }
+
     public void SetScores(Lapassay.Core.Models.Scores scores)
     {
         OverallScore = scores.Overall;
@@ -125,7 +158,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
         CategoryRows.Clear();
         foreach (var c in scores.Categories)
-            CategoryRows.Add(new CategoryRow(PrettyCategory(c.Name), c.Score.ToString()));
+            CategoryRows.Add(new CategoryRow(CategoryLabel(c.Name), c.Score.ToString()));
     }
 
     public void SetProgress(KernelProgress p)
@@ -143,17 +176,6 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         ProgressIndex = 0;
         ProgressTotal = 0;
     }
-
-    static string PrettyCategory(string raw) => raw switch
-    {
-        "cpu.integer"  => "CPU int",
-        "cpu.float"    => "CPU FP",
-        "cpu.memory"   => "Memory",
-        "cpu.parallel" => "Scaling",
-        "gpu.compute"  => "GPU compute",
-        "gpu.ai"       => "GPU AI",
-        _              => raw,
-    };
 
     public void RefreshPreflight()
     {

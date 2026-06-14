@@ -35,7 +35,10 @@ public static class Scoring
         ["cpu.scaling.efficiency"]   = new(70.0,   true),   // % — typical mid-range laptop scales 70%
         // GPU
         ["gpu.matmul.fp32.2048"]     = new(1000.0, true),   // GFLOPS — decent iGPU / entry dGPU
-        ["gpu.matmul.fp16.2048"]     = new(2000.0, true),   // GFLOPS — ~2x FP32 on FP16-capable HW
+        // FP16 *ALU* throughput (min16float in cs_5_1), NOT tensor cores — on many GPUs this is
+        // ≈ or below FP32, so the old 2000 baseline (assuming ~2× FP32) was wrong. Provisional;
+        // recalibrate on the reference Ryzen AI 9 HX 370 + RTX 4070 laptop.
+        ["gpu.matmul.fp16alu.2048"]  = new(1000.0, true),   // GFLOPS
         ["gpu.ai.squeezenet"]        = new(500.0,  true),   // inferences/sec — SqueezeNet via DirectML
     };
 
@@ -52,7 +55,7 @@ public static class Scoring
         ["cpu.latency.pointerchase"] = "cpu.memory",
         ["cpu.scaling.efficiency"]   = "cpu.parallel",
         ["gpu.matmul.fp32.2048"]     = "gpu.compute",
-        ["gpu.matmul.fp16.2048"]     = "gpu.compute",
+        ["gpu.matmul.fp16alu.2048"]  = "gpu.compute",
         ["gpu.ai.squeezenet"]        = "gpu.ai",
     };
 

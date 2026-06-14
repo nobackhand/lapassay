@@ -4,7 +4,6 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Runtime.Versioning;
-using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Controls;
@@ -25,6 +24,7 @@ public partial class MainWindow : Window
     MainWindowViewModel Vm => (MainWindowViewModel)DataContext!;
 
     DispatcherTimer? _powerPoll;
+    CancellationTokenSource? _runCts;
 
     public MainWindow()
     {
@@ -67,14 +67,17 @@ public partial class MainWindow : Window
         Vm.Results.Clear();
         Vm.LiveSamples.Clear();
         Vm.ClearProgress();
+        Vm.SetConfidence(null);
 
+        _runCts = new CancellationTokenSource();
         var options = new Runner.RunOptions(
             Cpu: Vm.RunCpu,
             Gpu: Vm.RunGpu,
             CpuN: Vm.CpuN,
             GpuN: Vm.GpuN,
             OnTelemetrySample: sample => Dispatcher.UIThread.Post(() => Vm.LiveSamples.Add(sample)),
-            OnKernelStart: p => Dispatcher.UIThread.Post(() => Vm.SetProgress(p)));
+            OnKernelStart: p => Dispatcher.UIThread.Post(() => Vm.SetProgress(p)),
+            Cancel: _runCts.Token);
         var outPath = JsonReport.DefaultPath();
 
         try
@@ -90,8 +93,13 @@ public partial class MainWindow : Window
             Vm.HasReport = true;
             Vm.ReplaceResults(run.Benchmarks);
             Vm.SetScores(run.Scores);
+            Vm.SetConfidence(run.Context);
             Vm.AppendLog($"\n✔ Wrote {outPath}");
             Vm.AppendLog($"✔ Wrote {htmlPath}");
+        }
+        catch (OperationCanceledException)
+        {
+            Vm.AppendLog("\nRun stopped — no result written.");
         }
         catch (Exception ex)
         {
@@ -99,10 +107,17 @@ public partial class MainWindow : Window
         }
         finally
         {
+            _runCts.Dispose();
+            _runCts = null;
             Vm.IsRunning = false;
             Vm.ClearProgress();
             ScrollLogToBottom();
         }
+    }
+
+    void OnStopRunClicked(object? sender, RoutedEventArgs e)
+    {
+        _runCts?.Cancel();
     }
 
     void OnOpenFolderClicked(object? sender, RoutedEventArgs e)
@@ -299,14 +314,11 @@ public partial class MainWindow : Window
         var pathB = ordered[1].Entry.Path;
         try
         {
-            var jsonOpts = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
-            var runA = JsonSerializer.Deserialize<BenchmarkRun>(File.ReadAllText(pathA), jsonOpts)!;
-            var runB = JsonSerializer.Deserialize<BenchmarkRun>(File.ReadAllText(pathB), jsonOpts)!;
             var labelA = Path.GetFileNameWithoutExtension(pathA);
             var labelB = Path.GetFileNameWithoutExtension(pathB);
-            var cmp = Lapassay.Core.Reporting.Compare.Diff(runA, runB, labelA, labelB);
+            var cmp = DiffService.BuildDiff(pathA, pathB, labelA, labelB);
             var outPath = Path.Combine(Path.GetDirectoryName(pathB) ?? ".", $"diff-{labelA}-vs-{labelB}.html");
-            HtmlReport.WriteToFile(cmp, outPath);
+            DiffService.WriteHtml(cmp, outPath);
             OpenInDefaultBrowser(outPath);
         }
         catch (Exception ex)
@@ -346,11 +358,9 @@ public partial class MainWindow : Window
         b.FirstJsonPath = firstRun.Value.savedJson;
 
         b.State = BatteryAcState.AwaitingSwitch;
-        b.StatusText = $"First run done. Now switch to {PowerStateDetector.Describe(b.SecondRunPowerExpected)} (un{(b.SecondRunPowerExpected == PowerState.OnBattery ? "" : "")}plug the charger) and click Continue.";
-        if (b.SecondRunPowerExpected == PowerState.OnBattery)
-            b.StatusText = "First run done. Now UNPLUG the charger and click Continue.";
-        else
-            b.StatusText = "First run done. Now PLUG IN the charger and click Continue.";
+        b.StatusText = b.SecondRunPowerExpected == PowerState.OnBattery
+            ? "First run done. Now UNPLUG the charger and click Continue."
+            : "First run done. Now PLUG IN the charger and click Continue.";
     }
 
     async void OnBatteryAcContinueClicked(object? sender, RoutedEventArgs e)
@@ -374,17 +384,13 @@ public partial class MainWindow : Window
         // Generate diff: first vs second.
         try
         {
-            var jsonOpts = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
-            var runA = JsonSerializer.Deserialize<BenchmarkRun>(File.ReadAllText(b.FirstJsonPath), jsonOpts)!;
-            var runB = JsonSerializer.Deserialize<BenchmarkRun>(File.ReadAllText(b.SecondJsonPath), jsonOpts)!;
             var labelA = PowerStateDetector.Describe(b.FirstRunPower);
             var labelB = PowerStateDetector.Describe(b.SecondRunPowerExpected);
-            var cmp = Lapassay.Core.Reporting.Compare.Diff(runA, runB, labelA, labelB);
+            var cmp = DiffService.BuildDiff(b.FirstJsonPath, b.SecondJsonPath, labelA, labelB);
             var outPath = Path.Combine(Path.GetDirectoryName(b.SecondJsonPath) ?? "results",
                 $"battery-ac-{labelA.ToLower()}-vs-{labelB.ToLower()}.html");
-            HtmlReport.WriteToFile(cmp, outPath);
-            b.DiffPath = Path.GetFullPath(outPath);
-            b.StatusText = $"Done. {labelA} → {labelB}: overall {runA.Scores.Overall} → {runB.Scores.Overall} " +
+            b.DiffPath = DiffService.WriteHtml(cmp, outPath);
+            b.StatusText = $"Done. {labelA} → {labelB}: overall {cmp.RunA.Scores.Overall} → {cmp.RunB.Scores.Overall} " +
                            $"({cmp.OverallScoreDelta:+0;-0;0}).";
             b.State = BatteryAcState.Complete;
         }
@@ -463,17 +469,13 @@ public partial class MainWindow : Window
 
         try
         {
-            var jsonOpts = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
-            BenchmarkRun runA, runB;
             await Task.Run(() =>
             {
-                runA = JsonSerializer.Deserialize<BenchmarkRun>(File.ReadAllText(pathA), jsonOpts)!;
-                runB = JsonSerializer.Deserialize<BenchmarkRun>(File.ReadAllText(pathB), jsonOpts)!;
                 var labelA = Path.GetFileNameWithoutExtension(pathA);
                 var labelB = Path.GetFileNameWithoutExtension(pathB);
-                var cmp = Lapassay.Core.Reporting.Compare.Diff(runA, runB, labelA, labelB);
+                var cmp = DiffService.BuildDiff(pathA, pathB, labelA, labelB);
                 var outPath = Path.Combine(Path.GetDirectoryName(pathB) ?? ".", $"diff-{labelA}-vs-{labelB}.html");
-                HtmlReport.WriteToFile(cmp, outPath);
+                DiffService.WriteHtml(cmp, outPath);
                 Process.Start(new ProcessStartInfo { FileName = outPath, UseShellExecute = true });
             });
         }

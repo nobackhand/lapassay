@@ -101,6 +101,49 @@ public sealed class D3D12Context : IDisposable
         }
     }
 
+    /// <summary>
+    /// Finds the high-performance adapter's index in DXGI's DEFAULT enumeration order —
+    /// which is what ONNX Runtime's DirectML EP `deviceId` indexes. Without this, the
+    /// D3D12 matmul kernels run on the dGPU (HighPerformance preference) while the ONNX
+    /// kernel's `deviceId: 0` lands on the default adapter (often the iGPU on dual-GPU
+    /// laptops) — silently blending two different chips into one GPU score.
+    /// Returns (0, null) on any failure so callers keep today's behavior.
+    /// </summary>
+    public static (int DeviceId, string? AdapterName) FindDmlDeviceForHighPerformanceAdapter()
+    {
+        try
+        {
+            CreateDXGIFactory2(false, out IDXGIFactory6? factory).CheckError();
+            if (factory is null) return (0, null);
+            try
+            {
+                if (factory.EnumAdapterByGpuPreference(0, GpuPreference.HighPerformance, out IDXGIAdapter1? preferred).Failure
+                    || preferred is null)
+                    return (0, null);
+                var target = preferred.Description1;
+                preferred.Dispose();
+
+                for (uint i = 0; ; i++)
+                {
+                    if (factory.EnumAdapters1(i, out IDXGIAdapter1? candidate).Failure || candidate is null)
+                        break;
+                    var desc = candidate.Description1;
+                    candidate.Dispose();
+                    if (desc.VendorId == target.VendorId
+                        && desc.DeviceId == target.DeviceId
+                        && desc.Description == target.Description)
+                        return ((int)i, desc.Description);
+                }
+                return (0, target.Description);
+            }
+            finally { factory.Dispose(); }
+        }
+        catch
+        {
+            return (0, null);
+        }
+    }
+
     public void Dispose()
     {
         Queue.Dispose();

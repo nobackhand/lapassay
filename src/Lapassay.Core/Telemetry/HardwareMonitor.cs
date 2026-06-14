@@ -23,6 +23,8 @@ public sealed class HardwareMonitor : IDisposable
 {
     readonly Computer _computer;
     readonly UpdateVisitor _visitor = new();
+    // Appended by the sampler task, read by Latest()/Stop() on other threads — guard every access.
+    readonly object _samplesLock = new();
     readonly List<TelemetrySample> _samples = new();
     CancellationTokenSource? _cts;
     Task? _loop;
@@ -50,7 +52,7 @@ public sealed class HardwareMonitor : IDisposable
 
     public void Start()
     {
-        _samples.Clear();
+        lock (_samplesLock) _samples.Clear();
         _cts = new CancellationTokenSource();
         var token = _cts.Token;
         _loop = Task.Run(async () =>
@@ -62,7 +64,7 @@ public sealed class HardwareMonitor : IDisposable
                 {
                     _computer.Accept(_visitor);
                     sample = Snapshot();
-                    _samples.Add(sample);
+                    lock (_samplesLock) _samples.Add(sample);
                 }
                 catch { /* ignore transient sensor glitches */ }
                 if (sample is not null)
@@ -79,15 +81,14 @@ public sealed class HardwareMonitor : IDisposable
     {
         _cts?.Cancel();
         try { _loop?.Wait(1000); } catch { }
-        return _samples.ToArray();
+        lock (_samplesLock) return _samples.ToArray();
     }
 
     /// <summary>Most recent sample (or null if none yet). Safe to call while the sampler is running.</summary>
     public TelemetrySample? Latest()
     {
-        // List<T>.Count read is volatile-enough for our purpose; we tolerate occasional misses.
-        var n = _samples.Count;
-        return n == 0 ? null : _samples[n - 1];
+        lock (_samplesLock)
+            return _samples.Count == 0 ? null : _samples[^1];
     }
 
     TelemetrySample Snapshot()
