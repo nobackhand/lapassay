@@ -13,6 +13,11 @@ name: Release
 on:
   push:
     tags: ['v*']
+    # Touching this sentinel file on main also cuts a (draft) release — the path that
+    # works in environments where tags can't be pushed and workflow_dispatch isn't
+    # permitted. Write the target version into it and merge.
+    branches: [main]
+    paths: ['.github/RELEASE_TRIGGER']
   workflow_dispatch:
 
 permissions:
