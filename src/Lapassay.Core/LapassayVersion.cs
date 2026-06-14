@@ -7,7 +7,7 @@ namespace Lapassay.Core;
 /// </summary>
 public static class LapassayVersion
 {
-    public const string Value = "0.6.0";
+    public const string Value = "0.7.0";
 
     /// <summary>Single-run JSON schema. 1.1: additive `repeats`. 1.2: fp16 → fp16alu id,
     /// additive `adapter` on GPU results. 1.3: additive `context` (admin/dev-mode/battery/
